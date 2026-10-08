@@ -1,0 +1,32 @@
+{
+  "name": "tunnel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @tunnel/desktop",
+    "desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop.ps1 dev",
+    "mobile": "npm run start -w @tunnel/mobile",
+    "android": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/android.ps1",
+    "build": "npm run build:desktop",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "test:ui": "playwright test",
+    "build:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop.ps1 build",
+    "build:web": "npm run build -w @tunnel/desktop",
+    "build:android": "npm run android",
+    "build:android:bundle": "npm run bundle:android -w @tunnel/mobile",
+    "test:rust": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop.ps1 test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.0",
+    "@types/react": "~19.2.2",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.expo/
+target/
+.tools/
+playwright-report/
+test-results/
+apps/mobile/android/
+apps/mobile/ios/
+*.log
+artifacts/*.apk
+artifacts/*.exe
+
+# Aurora packages ship compiled runtime files; these are source dependencies.
+!vendor/aurora/**/dist/
+!vendor/aurora/**/dist/**
+
+apps/desktop/src-tauri/gen/

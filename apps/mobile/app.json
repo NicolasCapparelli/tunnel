@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Tunnel", "slug": "tunnel", "version": "0.1.0", "scheme": "tunnel",
+    "orientation": "portrait", "userInterfaceStyle": "automatic", "icon": "../desktop/src-tauri/icons/icon.png",
+    "android": { "package": "app.tunnel.mobile", "permissions": ["CAMERA"], "adaptiveIcon": { "foregroundImage": "../desktop/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png", "backgroundColor": "#e8ece4" } },
+    "ios": { "bundleIdentifier": "app.tunnel.mobile", "infoPlist": { "NSLocalNetworkUsageDescription": "Tunnel sends text directly to your linked desktop on your local network.", "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true } } },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "Allow Tunnel to scan your desktop’s pairing QR.", "recordAudioAndroid": false }],
+      "expo-secure-store", "expo-font",
+      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }],
+      ["expo-share-intent", { "androidIntentFilters": ["text/plain"], "iosActivationRules": { "NSExtensionActivationSupportsText": true, "NSExtensionActivationSupportsWebURLWithMaxCount": 1 } }]
+    ]
+  }
+}

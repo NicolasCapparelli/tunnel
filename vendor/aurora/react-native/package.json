@@ -1,0 +1,25 @@
+{
+  "name": "@aurora/react-native",
+  "version": "0.1.0",
+  "description": "React Native adapter for Aurora: controller, provider, fixed scopes, hooks and explicit native style conversions.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@aurora/core": "0.1.0",
+    "react": ">=19.0.0 <20",
+    "react-native": ">=0.79.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@aurora/react",
+  "version": "0.1.0",
+  "description": "React adapter for Aurora: controller, provider, fixed scopes, hooks and CSS custom properties.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@aurora/core": "0.1.0",
+    "react": "^19.0.0"
+  }
+}

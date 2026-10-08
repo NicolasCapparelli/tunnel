@@ -1,0 +1,3 @@
+[build]
+# Resolve from the repository root for both Cargo and Tauri CLI builds.
+target-dir = "target"

@@ -1,0 +1,31 @@
+/** Dart's `double.round()`: halves round away from zero. */
+export declare function dartRound(value: number): number;
+/** Dart's `%`: the result has the sign of a positive divisor. */
+export declare function dartMod(value: number, divisor: number): number;
+export declare function signum(num: number): number;
+export declare function lerp(start: number, stop: number, amount: number): number;
+export declare function clampInt(min: number, max: number, input: number): number;
+export declare function clampDouble(min: number, max: number, input: number): number;
+export declare function sanitizeDegreesInt(degrees: number): number;
+export declare function sanitizeDegreesDouble(degrees: number): number;
+export declare function rotationDirection(from: number, to: number): number;
+export declare function differenceDegrees(a: number, b: number): number;
+export declare function matrixMultiply(row: readonly number[], matrix: readonly (readonly number[])[]): number[];
+export declare function argbFromRgb(red: number, green: number, blue: number): number;
+export declare function argbFromLinrgb(linrgb: readonly number[]): number;
+export declare function alphaFromArgb(argb: number): number;
+export declare function redFromArgb(argb: number): number;
+export declare function greenFromArgb(argb: number): number;
+export declare function blueFromArgb(argb: number): number;
+export declare function isOpaque(argb: number): boolean;
+export declare function argbFromXyz(x: number, y: number, z: number): number;
+export declare function xyzFromArgb(argb: number): number[];
+export declare function argbFromLab(l: number, a: number, b: number): number;
+export declare function labFromArgb(argb: number): number[];
+export declare function argbFromLstar(lstar: number): number;
+export declare function lstarFromArgb(argb: number): number;
+export declare function yFromLstar(lstar: number): number;
+export declare function lstarFromY(y: number): number;
+export declare function linearized(rgbComponent: number): number;
+export declare function delinearized(rgbComponent: number): number;
+export declare function whitePointD65(): number[];

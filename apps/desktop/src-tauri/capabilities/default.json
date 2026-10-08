@@ -1,0 +1,1 @@
+{ "identifier": "main-window", "description": "Tunnel’s local composer", "windows": ["main"], "permissions": ["core:default", "clipboard-manager:allow-read-text", "clipboard-manager:allow-write-text"] }

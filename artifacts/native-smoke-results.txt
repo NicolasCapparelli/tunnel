@@ -1,0 +1,1 @@
+PASS: native pairing, Android gesture, Windows clipboard, reverse transfer, Android clipboard, share intent, key revocation.
