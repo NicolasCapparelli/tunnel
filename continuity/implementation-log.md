@@ -1,6 +1,13 @@
 # Implementation log
 
 
+
+## 2026-10-08 — Repair standalone desktop assets
+
+User reported the alternate Windows executable opened a localhost refusal page. Root cause: the direct cargo-rustc workaround omitted Tauri's custom-protocol feature, producing a dev-URL release. Prior compilation success did not verify asset embedding. Corrected through the normal npm run build/Tauri CLI output at target/release/tunnel-desktop.exe, leaving the currently running broken next executable untouched. Added apps/desktop/src-tauri/build.rs guard against release builds where tauri_build::is_dev() is true; this prevents the exact packaging error from compiling again. No UI change or network proposal change.
+
+Automated validation: corrected normal optimized release build passes; final guard-enabled optimized rebuild passes, and a negative check verifies a dev-URL release is rejected before asset generation. All 189 local documentation links and whitespace checks pass. No app launch/manual/visual test occurred. User must quit the old next process then launch the normal exe; expected: embedded composer opens without localhost/Metro. H1–H8 remain user-owned. Updated status and implementation map; authorized corrective commit/push follows final build review.
+
 ## 2026-10-08 — Composer/media refinement and file streaming
 
 Implemented the user's general/desktop/mobile feedback in App.tsx/style.css, TunnelApp/SendRail/storage, native server/module/service and icon assets. Files now sit inside the composer carousel; media history uses thumbnail cards with explicit Copy/Save/Share and full-quanta viewing. Desktop text selection/global Ctrl+Enter and panel alignment are repaired. Mobile has layout preferences, genuine save-to-library/document-picker, faster menu, name feedback, header spacing and endpoint burst/invisible reset. Both visible UIs use viewport arrival feedback; mobile receipt snackbar opens history, and Android uses a new high-importance channel. Atom adaptive scale is reduced.

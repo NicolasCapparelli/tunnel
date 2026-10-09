@@ -6,7 +6,7 @@ Windows/Android V1 now includes bilateral text/images/files, instant Android tex
 
 ## Active work and last stopping point
 
-2026-10-08: feedback implementation and automated validation are complete. Android standalone release and final Windows release compile. The running app locked the usual Windows output, so the final build is available alongside it at target/release/tunnel-desktop-next.exe; quit the old app before running that copy or rebuilding the usual path. No app was killed or manually tested. This delivery is prepared for the authorized commit/push; publication outcome belongs in Git and the handoff. Network/multi-device brainstorming is captured in [the proposal](planning/network-transfers.md), with no implementation selected.
+2026-10-08: corrected the standalone Windows build after the user reported ERR_CONNECTION_REFUSED. The alternate cargo-rustc build had omitted Tauri's custom-protocol feature and retained devUrl; the previous build-only validation did not catch the unusable artifact. The normal npm run build uses Tauri CLI to embed frontend assets at target/release/tunnel-desktop.exe. A build.rs guard now rejects release builds without custom-protocol. Do not use the prior tunnel-desktop-next.exe. Publication outcome is recorded in Git/handoff; no manual app launch was performed.
 
 ## Pending human checks
 
@@ -23,8 +23,8 @@ Manual/visual testing stays with the user. Earlier broad V1 testing does not est
 
 ## Blockers and open questions
 
-No implementation/build blocker remains. The running old executable must be quit before replacing its usual path; the new executable is built alongside it. Remote encrypted inbox vs online-only, hub vs mesh and routing defaults are discussion choices, not implementation blockers.
+No implementation blocker remains. Quit the running broken tunnel-desktop-next.exe through its tray before launching the corrected normal executable; single-instance behavior otherwise returns to the old process. The user's localhost failure supersedes prior desktop runtime assumptions. Remote-routing proposals remain discussion only.
 
 ## Last verified state
 
-Desktop/mobile typechecks and 23 shared tests passed; eight Rust tests include ordered/incomplete chunk rejection and an 8 MiB disk-stream fixture; four JVM crypto interoperability tests passed. Android arm64 standalone release compiles with all current source. Windows final release compiles to target/release/tunnel-desktop-next.exe, leaving the locked running copy untouched. All 189 local documentation links/anchors and staged whitespace checks pass. No app launch/install or manual/visual testing was performed. Earlier verification remains [historical](../docs/verification.md).
+Desktop/mobile typechecks and 23 shared tests passed; eight Rust tests include ordered/incomplete chunk rejection and an 8 MiB disk-stream fixture; four JVM crypto interoperability tests passed. Android arm64 standalone release compiles with all current source. Corrected Windows release compiles through Tauri CLI to target/release/tunnel-desktop.exe with embedded assets and a release guard. The earlier alternate artifact compiled but was unusable; user-reported localhost refusal established that failure. The corrected UI remains pending user launch. All 189 local documentation links/anchors and staged whitespace checks pass. No app launch/install or manual/visual testing was performed. Earlier verification remains [historical](../docs/verification.md).

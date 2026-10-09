@@ -2,7 +2,7 @@
 
 ## Setup and resumption
 
-Requests: get this running, rebuild, return after a break, move checkout. Start [setup commands](../developer/setup.md#local-commands) and [stopping point](../status.md#active-work-and-last-stopping-point). Build owner: [desktop helper](../../tools/desktop.ps1); phone owner: [Android helper](../../tools/android.ps1). Verify through [automated commands](../developer/setup.md#automated-verification). Build outputs and dependencies are excluded from source orientation.
+Requests: get this running, rebuild, return after a break, move checkout. Start [setup commands](../developer/setup.md#local-commands) and [stopping point](../status.md#active-work-and-last-stopping-point). Build owner: [desktop helper](../../tools/desktop.ps1); phone owner: [Android helper](../../tools/android.ps1). Verify through [automated commands](../developer/setup.md#automated-verification). Standalone asset guard: [build.rs](../../apps/desktop/src-tauri/build.rs) rejects release builds without Tauri custom-protocol. Always use the Tauri CLI through npm run build; direct cargo release without custom-protocol retains the development URL. Build outputs and dependencies are excluded from source orientation.
 
 ## Composer and gestures
 
