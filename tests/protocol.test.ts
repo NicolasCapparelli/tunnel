@@ -94,7 +94,10 @@ describe("encrypted transfer contract", () => {
   });
 });
 describe("receipts and reconnects", () => {
-  function setup(receive = async () => {}) {
+  function setup(
+    receive = async () => {},
+    onPeerName?: (name: string) => void,
+  ) {
     const sockets: FakeSocket[] = [];
     const statuses: string[] = [];
     let nonce = 0;
@@ -108,6 +111,7 @@ describe("receipts and reconnects", () => {
       },
       onStatus: (s) => statuses.push(s),
       onReceive: receive,
+      onPeerName,
     });
     client.start();
     const socket = sockets[0];
@@ -119,6 +123,19 @@ describe("receipts and reconnects", () => {
     });
     return { client, socket, sockets, statuses };
   }
+  it("synchronizes peer names through authenticated welcome and rename frames", async () => {
+    const names: string[] = [];
+    const { client, socket } = setup(
+      async () => {},
+      (name) => names.push(name),
+    );
+    await vi.waitFor(() => expect(names).toEqual(["Desktop"]));
+    socket.incoming({ type: "name", name: "My workstation 🌀" });
+    await vi.waitFor(() =>
+      expect(names).toEqual(["Desktop", "My workstation 🌀"]),
+    );
+    client.stop();
+  });
   it("waits for the peer receipt before resolving a send", async () => {
     const { client, socket } = setup();
     await vi.waitFor(() => expect(client.status).toBe("connected"));

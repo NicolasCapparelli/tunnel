@@ -1,8 +1,8 @@
 # Tunnel
 
-Tunnel replaces sending yourself Discord messages with a direct passage for text between a Windows desktop and an Android phone. It is a personal development V1: local network, one paired phone, bidirectional text, receipt history and Aurora appearance.
+Tunnel replaces sending yourself Discord messages with a direct passage for text, images and files between a Windows desktop and an Android phone. It is a personal development V1: local network, one paired phone, bidirectional quanta, receipt history and Aurora appearance.
 
-Attachments, account authentication, differing networks, macOS and iOS are future scope. See [current state](status.md) for implementation and verification boundaries.
+Account authentication, differing networks, macOS and iOS are future scope. See [current state](status.md) for implementation and verification boundaries.
 
 | Task | Start here |
 | --- | --- |

@@ -1,4 +1,6 @@
-# V1 verification
+# Historical V1 verification
+
+This records the original V1 before the feedback changes. Current verification is in [Continuity status](../continuity/status.md#last-verified-state); original 80% desktop/mobile rail and Android foreground-only behavior have been superseded.
 
 ## Automated checks
 

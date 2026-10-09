@@ -43,4 +43,4 @@ Review destination roles and obsolete active reading instructions, not only link
 
 ## Tunnel testing and scope
 
-Leave manual and visual application testing to the user unless explicitly authorized. Automated unit tests, typechecks and compilation checks are allowed. Documentation link/source routing review is not runtime testing. Do not launch an emulator, interactively exercise apps or inspect screenshots by default. Shared Aurora core/contract is required; Windows and Android lead, other platforms/attachments/remote auth remain future scope.
+Leave manual and visual application testing to the user unless explicitly authorized. Automated unit tests, typechecks and compilation checks are allowed. Documentation link/source routing review is not runtime testing. Do not launch an emulator, interactively exercise apps or inspect screenshots by default. Shared Aurora core/contract is required; Windows and Android lead, other platforms/remote auth remain future scope; image/file quanta are supported.

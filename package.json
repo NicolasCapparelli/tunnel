@@ -18,7 +18,7 @@
     "test:ui": "playwright test",
     "build:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop.ps1 build",
     "build:web": "npm run build -w @tunnel/desktop",
-    "build:android": "npm run android",
+    "build:android": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/android.ps1 build",
     "build:android:bundle": "npm run bundle:android -w @tunnel/mobile",
     "test:rust": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop.ps1 test"
   },

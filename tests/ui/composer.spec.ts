@@ -46,8 +46,10 @@ async function nativeMock(page: Page) {
   });
 }
 async function go(page: Page, name: string) {
-  await page.getByRole("button", { name: "Open navigation" }).click();
-  await page.getByRole("button", { name, exact: true }).click();
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name, exact: true })
+    .click();
 }
 test("browser preview keeps the draft and is honest about native connectivity", async ({
   page,
@@ -63,12 +65,9 @@ test("browser preview keeps the draft and is honest about native connectivity", 
   await expect(
     page.getByText("BROWSER PREVIEW", { exact: false }),
   ).toBeVisible();
-  await expect(page.getByRole("slider")).toHaveAttribute(
-    "aria-disabled",
-    "true",
-  );
+  await expect(page.locator(".tunnel-button")).toBeDisabled();
 });
-test("a short gesture cancels; a full upward gesture sends exactly once", async ({
+test("desktop Tunnel button sends once and history defaults to Received", async ({
   page,
 }) => {
   await nativeMock(page);
@@ -76,29 +75,7 @@ test("a short gesture cancels; a full upward gesture sends exactly once", async 
   await page
     .getByRole("textbox", { name: "Quanta text" })
     .fill("Hello through the barrier 🌀");
-  await expect(page.getByRole("slider")).toHaveAttribute(
-    "aria-disabled",
-    "false",
-  );
-  const rail = (await page.getByRole("slider").boundingBox())!;
-  const x = rail.x + rail.width / 2,
-    y = rail.y + rail.height - 35;
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x, y - 40, { steps: 4 });
-  await page.mouse.up();
-  expect(
-    await page.evaluate(
-      () =>
-        (window as any).testState.calls.filter(
-          (c: any) => c.cmd === "send_text",
-        ).length,
-    ),
-  ).toBe(0);
-  await page.mouse.move(x, y);
-  await page.mouse.down();
-  await page.mouse.move(x, rail.y + 40, { steps: 12 });
-  await page.mouse.up();
+  await page.locator(".tunnel-button").click();
   await expect(page.getByRole("textbox", { name: "Quanta text" })).toHaveValue(
     "",
   );
@@ -111,6 +88,10 @@ test("a short gesture cancels; a full upward gesture sends exactly once", async 
     ),
   ).toBe(1);
   await go(page, "Transfer history");
+  await expect(
+    page.getByRole("button", { name: "Received", exact: true }),
+  ).toHaveClass(/selected/);
+  await page.getByRole("button", { name: "Sent", exact: true }).click();
   await expect(page.locator(".history-item")).toContainText(
     "Hello through the barrier 🌀",
   );
@@ -149,7 +130,7 @@ test("theme switches persist and preserve an in-flight draft", async ({
   await expect(
     page.getByRole("button", { name: "Dune", exact: true }),
   ).toHaveClass(/selected/);
-  await go(page, "New quanta");
+  await go(page, "Tunnel");
   await expect(page.getByRole("textbox", { name: "Quanta text" })).toHaveValue(
     "Preserve my thought",
   );

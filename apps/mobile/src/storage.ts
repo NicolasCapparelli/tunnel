@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
 import * as Crypto from "expo-crypto";
@@ -7,6 +8,8 @@ import {
   type Credentials,
   type Transfer,
   MAX_HISTORY,
+  validateAttachments,
+  type Attachment,
 } from "@tunnel/shared";
 import { restoreTheme } from "@tunnel/shared/theme";
 let queue = Promise.resolve();
@@ -29,7 +32,11 @@ export async function load() {
       "tunnel-history",
       "tunnel-draft",
       "tunnel-device",
+      "tunnel-device-name",
       "tunnel-auto-copy",
+      "tunnel-attachments",
+      "tunnel-send-layout",
+      "tunnel-under-control",
     ]),
     SecureStore.getItemAsync("tunnel-link"),
   ]);
@@ -91,6 +98,28 @@ export async function load() {
     draft:
       typeof parse("tunnel-draft") === "string" ? parse("tunnel-draft") : "",
     deviceId,
+    deviceName:
+      typeof parse("tunnel-device-name") === "string"
+        ? parse("tunnel-device-name")
+        : (credentials?.deviceName ??
+          (Platform.OS === "android" ? "My Android" : "My iPhone")),
+    attachments: (() => {
+      const items = parse("tunnel-attachments") ?? [];
+      try {
+        validateAttachments(items);
+        return items as Attachment[];
+      } catch {
+        return [];
+      }
+    })(),
+    sendLayout: (["right", "left", "under"].includes(
+      parse("tunnel-send-layout"),
+    )
+      ? parse("tunnel-send-layout")
+      : "right") as "right" | "left" | "under",
+    underControl: (parse("tunnel-under-control") === "button"
+      ? "button"
+      : "slider") as "button" | "slider",
     autoCopy: parse("tunnel-auto-copy") !== false,
   };
 }

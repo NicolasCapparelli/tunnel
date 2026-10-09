@@ -1,7 +1,7 @@
 import { isTauri, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { readText, writeText } from "@tauri-apps/plugin-clipboard-manager";
-import type { Pairing, Transfer } from "@tunnel/shared";
+import type { Pairing, Transfer, Attachment } from "@tunnel/shared";
 
 export interface Snapshot {
   deviceName: string;
@@ -35,12 +35,24 @@ export const bridge = {
       : Promise.reject(
           new Error("Open Tunnel’s desktop app to pair your phone."),
         ),
-  send: (text: string, id: string) =>
+  send: (text: string, id: string, attachments: Attachment[] = []) =>
     native
-      ? invoke<void>("send_text", { text, id })
+      ? invoke<void>("send_text", { text, id, attachments })
       : Promise.reject(
           new Error("Text transfer is available in the desktop app."),
         ),
+  pickAttachments: () => invoke<Attachment[]>("pick_attachments"),
+  previewDraft: (uri: string) => invoke<string>("preview_draft", { uri }),
+  copyAttachment: (id: string, index: number) =>
+    invoke<void>("copy_attachment", { id, index }),
+  previewAttachment: (id: string, index: number) =>
+    invoke<string>("preview_attachment", { id, index }),
+  saveAttachment: (id: string, index: number) =>
+    native
+      ? invoke<void>("save_attachment", { id, index })
+      : Promise.reject(new Error("Use the desktop app to save files.")),
+  rename: (name: string) =>
+    native ? invoke<void>("rename_device", { name }) : Promise.resolve(),
   unpair: () => (native ? invoke<void>("unpair") : Promise.resolve()),
   clearHistory: () =>
     native ? invoke<void>("clear_history") : Promise.resolve(),
@@ -51,11 +63,16 @@ export const bridge = {
   readClipboard: () => (native ? readText() : navigator.clipboard.readText()),
   copy: (text: string) =>
     native ? writeText(text) : navigator.clipboard.writeText(text),
-  subscribe: async (refresh: () => void, history: () => void) => {
+  subscribe: async (
+    refresh: () => void,
+    history: () => void,
+    arrived: () => void = () => {},
+  ) => {
     if (!native) return () => {};
     const stops = await Promise.all([
       listen("tunnel-changed", refresh),
       listen("tunnel-history", history),
+      listen("tunnel-arrived", arrived),
     ]);
     return () => stops.forEach((stop) => stop());
   },

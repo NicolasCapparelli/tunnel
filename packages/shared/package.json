@@ -1,5 +1,15 @@
 {
-  "name": "@tunnel/shared", "version": "0.1.0", "private": true, "type": "module",
-  "exports": {".": "./src/index.ts", "./theme": "./src/theme.ts"},
-  "dependencies": { "@aurora/core": "file:../../vendor/aurora/core", "@noble/ciphers": "^2.0.0" }
+  "name": "@tunnel/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./theme": "./src/theme.ts",
+    "./composer": "./src/composer.ts"
+  },
+  "dependencies": {
+    "@aurora/core": "file:../../vendor/aurora/core",
+    "@noble/ciphers": "^2.0.0"
+  }
 }

@@ -54,7 +54,7 @@ await expect
   .toBe(true);
 console.log("PASS: Android paired with the real Tauri listener.");
 android("tap", "Open navigation");
-android("tap", "New quanta");
+android("tap", "Tunnel");
 android("tap", "Quanta text");
 android("text", "Native smoke quanta from Android");
 android("back");

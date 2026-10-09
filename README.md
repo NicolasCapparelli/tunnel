@@ -1,6 +1,6 @@
 # Tunnel
 
-A private passage for text between Windows and Android. React + Tauri on desktop, React Native + Expo on mobile, with a shared Aurora contract and encrypted transfer protocol.
+A private passage for text, images and files between Windows and Android. React + Tauri on desktop, React Native + Expo on mobile, with a shared Aurora contract and encrypted transfer protocol.
 
 The default **Mineral** theme uses soft sage surfaces and teal. **Dune** and **Tide**, plus light/dark/system appearance, are available on both devices. Dark variants use slate surfaces. Theme changes preserve navigation and drafts.
 
@@ -14,13 +14,15 @@ If camera scanning is unavailable, **Copy pairing code** on Windows supplies the
 
 If Windows prompts about network access, allow Tunnel on your private network. The desktop listens on TCP **53177**. Guest Wi-Fi and networks with client isolation can block device-to-device connections. Internet/cellular transfer is not implemented yet.
 
-Type or paste into the large composer, then drag the particle up the adjacent rail. Release past 80% of the track to send; a shorter drag cancels. Desktop also supports **Ctrl+Enter**. Screen-reader users have a send action. The draft clears after the peer confirms receipt. A changed draft is preserved if you keep typing while sending.
+Type or paste into the large composer. On Android, flick upward on the rail or pass two particles; the handle completes its motion and sends. On desktop, use **Tunnel** or **Ctrl+Enter** anywhere on the composer page. In mobile Appearance settings, place the rail Left, Right or Under; Under can instead use a Tunnel button. The rail completes with a burst, then resets invisibly to its starting position. Short gestures cancel. Screen-reader users have a send action. The draft clears after the peer confirms receipt. A changed draft is preserved if you keep typing while sending.
 
-Incoming text copies to the clipboard by default. Switch this off in settings. Windows sends a notification; its activation callback opens history. Notifications contain a generic receipt rather than the transferred text. Closing the Windows window hides it in the tray. The tray menu has Open, History, and Quit. **Ctrl+Shift+Space** opens Tunnel, and launch at login is an optional setting.
+Incoming text and single-image quanta copy to the Windows clipboard by default; phone auto-copy applies to text while active. Switch this off in settings. Windows sends a notification; its activation callback opens history. Notifications contain a generic receipt rather than the transferred text. Closing the Windows window hides it in the tray. The tray menu has Open, History, and Quit. **Ctrl+Shift+Space** opens Tunnel, and launch at login is an optional setting.
 
-Android can receive shared text/URLs from another app into its composer. Keep the phone app in the foreground for desktop-to-phone delivery. Android background receiving is not included in this version.
+Android text/URL shares and the selected-text **Tunnel** action send through native code without opening the main UI by default. Shared images/files open the composer for an optional note. **Share straight away** settings choose instant or review behavior independently for text, images and other files. Android and the source app choose text-menu placement; Tunnel may appear in the overflow. If unpaired, sharing opens Tunnel to review/link. If paired but offline, instant shares queue for that desktop and send on reconnection; confirmation/failure appears in a notification and history. A native Android foreground service keeps the local connection active when you switch apps. Its ongoing notification shows that Tunnel is available. Received text is persisted before acknowledgment and merged into history when the UI resumes; automatic phone clipboard copying occurs while the UI is active. Android controls service lifetime under force-stop/power restrictions.
 
-History shows the latest 200 sent/received transfers, with copy, search, filters, and retry for unconfirmed sends. Clearing history retains recent duplicate IDs, so a retry does not overwrite the clipboard twice. Offline text remains a draft; this version does not automatically send an offline draft later.
+Visible receipts animate across the viewport on both devices; the Android receipt snackbar opens history. The recent desktop panel aligns filters/search and heading/View all, hides scrollbars, and offers attachment save/copy and a full-quanta dialog.
+
+History shows the latest 200 sent/received transfers, with copy, search, filters, and retry for unconfirmed sends. Clearing history retains recent duplicate IDs, so a retry does not overwrite the clipboard twice. Manually composed offline quanta remain drafts; only instant Android shares automatically queue. Use **Attach something** for up to 32 files, with a combined 250 MiB limit. Files appear in a horizontal carousel inside the quanta box alongside the optional note. History searches notes and filenames. Desktop media cards offer Copy/Save; expand opens the complete quanta and text remains selectable. Android image taps open a viewer; separate Save and Share actions write a local copy or open the system share sheet. Android Save uses Pictures/Tunnel or Downloads/Tunnel (a document picker on API 28).
 
 ## Development
 
@@ -30,10 +32,11 @@ npm ci                         # First checkout / changed dependencies
 npm run desktop                # Native desktop with hot reload
 npm run build                  # Standalone desktop executable, no installer
 .\target\release\tunnel-desktop.exe
-npm run build:android          # Build/install debug Android app and start Metro
+npm run android                # Hot-reload debug Android + Metro
+npm run build:android          # Build/install self-contained Android; no Metro needed
 ```
 
-Android requires a USB-connected device with USB debugging enabled, or an emulator you start. Expo compiles and installs directly; there is no manual APK sideload step. Subsequent JavaScript edits reload through Metro. `npm run mobile` starts Metro alone for an already installed development build. Expo Go does not include the share-intent module.
+Android requires a USB-connected device with USB debugging enabled, or an emulator you start. Expo compiles and installs directly; there is no manual APK sideload step. For hot reload, subsequent JavaScript edits reload through Metro. The standalone build embeds JavaScript and remains runnable after Metro shuts down. Re-run build:android to refresh that embedded code. `npm run mobile` starts Metro alone for an already installed development build. Expo Go does not include the share-intent module.
 
 `npm run build:android:bundle` exports an Android JavaScript/Hermes bundle without launching or installing the app. It is a compilation check, not a runnable native build.
 
@@ -43,8 +46,9 @@ See [setup](continuity/developer/setup.md) for prerequisites and automated check
 
 | Area | Location | Responsibility |
 | --- | --- | --- |
-| Desktop UI | `apps/desktop/src` | Composer, rail, navigation, pairing QR, history, Aurora settings |
+| Desktop UI | `apps/desktop/src` | Composer, Tunnel action, sidebar, pairing QR, history, Aurora settings |
 | Native desktop | `apps/desktop/src-tauri/src` | Tray, listener, clipboard, notifications, persistence, startup, shortcut |
+| Android connection | `apps/mobile/modules/tunnel-link` | Native foreground service, encrypted connection, persisted receipt inbox, Direct Share |
 | Native phone | `apps/mobile/src` | Composer, gesture/haptics, camera, clipboard, secure pairing storage, share intent |
 | Shared transport | `packages/shared/src/index.ts` | Validation, encryption, handshake, reconnects, heartbeat, receipts |
 | Shared themes | `packages/shared/src/theme.ts` | Stable Aurora contract, complete theme variants, preference validation |
@@ -54,11 +58,11 @@ The native listener stays alive independently of the desktop WebView. It binds d
 
 Desktop state/history live in the application’s data directory. Desktop pairing material and history are currently readable by the local user; app-level encryption at rest is not included. Android pairing material uses SecureStore; local draft/history use AsyncStorage. There is no analytics, cloud storage, or account requirement.
 
-Payloads preserve whitespace and Unicode, with a 64 KB UTF-8 limit. Receipts follow persistence. Clipboard/notification errors are surfaced while keeping received text in history. Retry uses the original transfer ID to avoid duplicate receipt side effects. A timeout means receipt is unconfirmed, not proof that the text never arrived.
+Text preserves whitespace and Unicode, with a 64 KB UTF-8 limit. Windows and Android stream attachment bytes in authenticated 48 KiB chunks, bounded at 250 MiB total. A 1,000,000-character encrypted hex frame cap limits individual messages. Update both devices together for this wire change. The non-Android JavaScript fallback remains limited to 5 MiB because it assembles bytes in memory. Received files are saved in private local storage before receipt and opened/exported only through user actions. Receipts follow persistence. Clipboard/notification errors are surfaced while keeping received text in history. Retry uses the original transfer ID to avoid duplicate receipt side effects. A timeout means receipt is unconfirmed, not proof that the text never arrived.
 
 ## Scope and verification
 
-This V1 carries text and links. The attachment control is visibly marked **Soon**. Images, files, audio, OCR, cellular/remote transport, accounts, multi-device routing, and continuous clipboard monitoring are not implemented. macOS and iOS are next targets; this checkout has not been built or exercised on those platforms. macOS notification activation needs its own implementation when that target is enabled.
+This version carries text/links and files, including images and audio files, with optional notes. In-app recording, OCR, cellular/remote transport, accounts, multi-device routing, and continuous clipboard monitoring are not implemented. macOS and iOS are next targets; this checkout has not been built or exercised on those platforms. macOS notification activation needs its own implementation when that target is enabled.
 
 See `docs/verification.md` for checked behavior and remaining device checks.
 

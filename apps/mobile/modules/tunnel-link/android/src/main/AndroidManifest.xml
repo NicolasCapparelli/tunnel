@@ -1,0 +1,9 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <application><service android:name="app.tunnel.link.TunnelService" android:exported="false" android:foregroundServiceType="remoteMessaging" android:stopWithTask="false" /><activity android:name="app.tunnel.link.ShareActivity" android:exported="true" android:label="Tunnel" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true">
+<intent-filter><action android:name="android.intent.action.PROCESS_TEXT"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="text/plain"/></intent-filter>
+<intent-filter><action android:name="android.intent.action.SEND"/><action android:name="android.intent.action.SEND_MULTIPLE"/><category android:name="android.intent.category.DEFAULT"/><data android:mimeType="*/*"/></intent-filter>
+</activity></application>
+</manifest>

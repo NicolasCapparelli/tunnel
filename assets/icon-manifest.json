@@ -1,0 +1,6 @@
+{
+  "default": "tunnel.svg",
+  "bg_color": "#f2f4ed",
+  "android_fg": "tunnel-foreground.svg",
+  "android_fg_scale": 60
+}

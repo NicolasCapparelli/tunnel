@@ -1,6 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#[cfg(windows)]
+mod notifications;
 mod protocol;
 mod server;
+mod stream;
 use server::*;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -112,9 +115,15 @@ fn main() {
             snapshot,
             pairing,
             send_text,
+            save_attachment,
+            preview_attachment,
+            pick_attachments,
+            preview_draft,
+            copy_attachment,
             unpair,
             clear_history,
-            preferences
+            preferences,
+            rename_device
         ])
         .run(tauri::generate_context!())
         .expect("Tunnel failed to start");

@@ -16,3 +16,7 @@ artifacts/*.exe
 !vendor/aurora/**/dist/**
 
 apps/desktop/src-tauri/gen/
+
+# Local Expo module build outputs
+apps/mobile/modules/*/android/build/
+.gradle/

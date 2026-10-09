@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
+  BackHandler,
   Alert,
   Animated,
   AppState,
   Keyboard,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,6 +17,8 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AuroraSelection } from "@aurora/core";
@@ -27,9 +31,10 @@ import {
 import { themes, type ThemePreferences } from "@tunnel/shared/theme";
 import {
   MAX_HISTORY,
-  TunnelClient,
   parsePairing,
-  validateText,
+  validateQuanta,
+  validateAttachments,
+  type Attachment,
   type ConnectionStatus,
   type Credentials,
   type Quanta,
@@ -65,11 +70,31 @@ import {
 } from "lucide-react-native";
 import Svg, { Circle, Ellipse } from "react-native-svg";
 import SendRail from "./SendRail";
+import {
+  composerPrompts,
+  nextPrompt,
+  validDeviceName,
+} from "@tunnel/shared/composer";
+import {
+  createConnection,
+  getShareSettings,
+  setShareSettings,
+  type ShareSettings,
+} from "./connection";
+import * as DocumentPicker from "expo-document-picker";
+import {
+  importFile,
+  storeQuanta,
+  wireQuanta,
+  shareFile,
+  saveFile,
+  releaseFiles,
+} from "./files";
 import { saveCredentials, saveLocal, type BootState } from "./storage";
 
 type Page = "send" | "history" | "devices" | "settings";
 const navigation = [
-  { id: "send", label: "New quanta", icon: Plus },
+  { id: "send", label: "Tunnel", icon: Plus },
   { id: "history", label: "Transfer history", icon: History },
   { id: "devices", label: "Linked devices", icon: Link2 },
   { id: "settings", label: "Appearance & settings", icon: Settings2 },
@@ -131,8 +156,26 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
     line: nativeColor(tokens.outlineVariant),
     error: nativeColor(tokens.error),
   };
+  const [sendLayout, setSendLayout] = useState(boot.sendLayout);
+  const [underControl, setUnderControl] = useState(boot.underControl);
+  const [viewImage, setViewImage] = useState<Attachment | null>(null);
+  const [nameSaved, setNameSaved] = useState(false);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const viewport = useWindowDimensions();
+  const arrivalOpacity = useRef(new Animated.Value(0)).current;
+  const arrivalScale = useRef(new Animated.Value(0.2)).current;
   const [page, setPage] = useState<Page>("send");
+  const pageStack = useRef<Page[]>(["send"]);
+  const [prompt, setPrompt] = useState(0);
+  const [deviceName, setDeviceName] = useState(boot.deviceName);
+  const [nameDraft, setNameDraft] = useState(boot.deviceName);
+  const previousAppState = useRef(AppState.currentState);
   const [menu, setMenu] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>(
+    boot.attachments,
+  );
+  const [shareSettings, updateShareSettings] = useState(getShareSettings);
   const [draft, setDraft] = useState(boot.draft);
   const [history, setHistory] = useState(boot.history);
   const [credentials, setCredentials] = useState<Credentials | null>(
@@ -146,10 +189,12 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
   const [code, setCode] = useState("");
   const [permission, requestPermission] = useCameraPermissions();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "sent" | "received">("all");
+  const [filter, setFilter] = useState<"all" | "sent" | "received">("received");
   const input = useRef<TextInput>(null);
-  const client = useRef<TunnelClient | null>(null);
+  const client = useRef<ReturnType<typeof createConnection> | null>(null);
   const historyRef = useRef(boot.history);
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
   const seen = useRef(boot.seen);
   const historyQueue = useRef(Promise.resolve());
   const copyIncoming = useRef(autoCopy);
@@ -195,14 +240,43 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
     return () => clearTimeout(timeout);
   }, [draft]);
   useEffect(() => {
-    if (hasShareIntent) {
-      const text = shareIntent.text ?? shareIntent.webUrl;
-      if (text) {
-        setDraft((old: string) => (old ? old + "\n" + text : text));
-        setPage("send");
-      }
-      resetShareIntent();
-    }
+    void saveLocal("tunnel-attachments", attachments).catch(() =>
+      setToast("Could not save attachments."),
+    );
+  }, [attachments]);
+  useEffect(() => {
+    if (!hasShareIntent) return;
+    const text = shareIntent.text ?? shareIntent.webUrl ?? "";
+    const files = shareIntent.files ?? [];
+    resetShareIntent();
+    void (async () => {
+      const imported = await Promise.all(
+        files.map((f) =>
+          importFile(
+            f.path,
+            f.fileName ?? "attachment",
+            f.mimeType,
+            f.size ?? undefined,
+          ),
+        ),
+      );
+      validateAttachments(imported);
+      // Android instant shares are handled natively, without opening this screen.
+      setAttachments((old) => {
+        const next = [...old, ...imported];
+        try {
+          validateAttachments(next);
+          return next;
+        } catch (e) {
+          setToast((e as Error).message);
+          return old;
+        }
+      });
+      if (text) setDraft((old: string) => (old ? old + "\n" + text : text));
+      pageStack.current = ["send"];
+      setPrompt(nextPrompt);
+      setPage("send");
+    })().catch((e) => setToast(String(e.message ?? e)));
   }, [hasShareIntent, shareIntent, resetShareIntent]);
   useEffect(() => {
     if (shareError) setToast(shareError);
@@ -218,7 +292,9 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
             ? [...seen.current, receivedId].slice(-2000)
             : seen.current;
           await saveLocal("tunnel-history", { items, seen: ids });
+          const previous = historyRef.current;
           historyRef.current = items;
+          await releaseFiles(previous, items, attachmentsRef.current);
           seen.current = ids;
           setHistory(items);
         });
@@ -232,16 +308,31 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
       setStatus("offline");
       return;
     }
-    const connection = new TunnelClient({
+    const connection = createConnection({
       credentials,
       random: Crypto.getRandomBytes,
       socket: (url) => new WebSocket(url) as unknown as SocketLike,
       onStatus: setStatus,
+      onPeerName: (name) => {
+        setCredentials((old) => {
+          if (!old || old.desktopName === name) return old;
+          const updated = { ...old, desktopName: name };
+          void saveCredentials(updated);
+          return updated;
+        });
+      },
       onError: () =>
         setToast(
           "Connection interrupted. Keep both devices on the same Wi-Fi.",
         ),
-      onReceive: async (q: Quanta) => {
+      onOutgoing: async (q) => {
+        await mutateHistory((items) => [
+          q,
+          ...items.filter((x) => x.id !== q.id),
+        ]);
+      },
+      onReceive: async (incoming: Quanta) => {
+        const q = await storeQuanta(incoming);
         const duplicate = seen.current.includes(q.id);
         await mutateHistory(
           (items) => [
@@ -256,8 +347,22 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
           q.id,
         );
         if (duplicate) return;
+        arrivalOpacity.setValue(1);
+        arrivalScale.setValue(0.2);
+        Animated.parallel([
+          Animated.timing(arrivalScale, {
+            toValue: reduced.current ? 1 : 2.4,
+            duration: 850,
+            useNativeDriver: true,
+          }),
+          Animated.timing(arrivalOpacity, {
+            toValue: 0,
+            duration: 950,
+            useNativeDriver: true,
+          }),
+        ]).start();
         let copied = false;
-        if (copyIncoming.current)
+        if (copyIncoming.current && q.text.trim())
           try {
             await Clipboard.setStringAsync(q.text);
             copied = true;
@@ -275,22 +380,31 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
       },
     });
     client.current = connection;
-    if (AppState.currentState === "active") connection.start();
+    connection.start();
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") connection.start();
-      else connection.stop();
+      if (state === "active") {
+        connection.start();
+        connection.resume?.();
+      } else if (Platform.OS !== "android") connection.stop();
     });
     return () => {
       sub.remove();
-      connection.stop();
+      connection.dispose();
       client.current = null;
     };
   }, [credentials, mutateHistory]);
   const send = async (retry?: Transfer) => {
     if (sending.current) return;
     const text = retry?.text ?? draft;
+    const files = retry?.attachments ?? attachments;
+    const q: Quanta = {
+      id: retry?.id ?? Crypto.randomUUID(),
+      text,
+      createdAt: retry?.createdAt ?? Date.now(),
+      attachments: files,
+    };
     try {
-      validateText(text);
+      validateQuanta(q);
     } catch (e) {
       setToast((e as Error).message);
       return;
@@ -302,11 +416,6 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
     sending.current = true;
     setBusy(true);
     Keyboard.dismiss();
-    const q: Quanta = {
-      id: retry?.id ?? Crypto.randomUUID(),
-      text,
-      createdAt: retry?.createdAt ?? Date.now(),
-    };
     try {
       await mutateHistory((items) => [
         {
@@ -329,6 +438,9 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
       );
       if (!retry)
         setDraft((current: string) => (current === text ? "" : current));
+      if (!retry)
+        setAttachments((current) => (current === files ? [] : current));
+      setPrompt(nextPrompt);
       setToast("Received on " + credentials!.desktopName + ".");
       void Haptics.notificationAsync(
         Haptics.NotificationFeedbackType.Success,
@@ -342,6 +454,42 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
       motion.setValue(0);
       sending.current = false;
       setBusy(false);
+    }
+  };
+  const attach = async () => {
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+      if (picked.canceled) return;
+      const files = await Promise.all(
+        picked.assets.map((a) => importFile(a.uri, a.name, a.mimeType, a.size)),
+      );
+      setAttachments((old) => {
+        const next = [...old, ...files];
+        try {
+          validateAttachments(next);
+          return next;
+        } catch (e) {
+          setToast((e as Error).message);
+          return old;
+        }
+      });
+    } catch (e) {
+      setToast((e as Error).message);
+    }
+  };
+  const changeShareSetting = async (
+    key: keyof ShareSettings,
+    value: boolean,
+  ) => {
+    try {
+      const next = { ...shareSettings, [key]: value };
+      await setShareSettings(next);
+      updateShareSettings(next);
+    } catch {
+      setToast("Could not save sharing preference.");
     }
   };
   const paste = async () => {
@@ -365,7 +513,7 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
       const link = {
         ...pairing,
         deviceId: boot.deviceId,
-        deviceName: Platform.OS === "android" ? "My Android" : "My iPhone",
+        deviceName,
       };
       await saveCredentials(link);
       setCredentials(link);
@@ -409,9 +557,98 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
     );
   };
   const navigate = (p: Page) => {
+    if (p !== page) {
+      if (p === "send") {
+        pageStack.current = ["send"];
+        setPrompt(nextPrompt);
+      } else pageStack.current.push(p);
+    }
     setPage(p);
     setMenu(false);
   };
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (menu) {
+        setMenu(false);
+        return true;
+      }
+      if (scan) {
+        setScan(false);
+        return true;
+      }
+      if (input.current?.isFocused() || Keyboard.isVisible()) {
+        input.current?.blur();
+        Keyboard.dismiss();
+        return true;
+      }
+      if (pageStack.current.length > 1) {
+        pageStack.current.pop();
+        const next = pageStack.current.at(-1)!;
+        if (next === "send") setPrompt(nextPrompt);
+        setPage(next);
+        return true;
+      }
+      if (page !== "send") {
+        pageStack.current = ["send"];
+        setPage("send");
+        setPrompt(nextPrompt);
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [page, menu, scan]);
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (
+        state === "active" &&
+        previousAppState.current !== "active" &&
+        page === "send"
+      )
+        setPrompt(nextPrompt);
+      previousAppState.current = state;
+    });
+    return () => sub.remove();
+  }, [page]);
+  useEffect(() => {
+    const sub = Keyboard.addListener("keyboardDidHide", () =>
+      input.current?.blur(),
+    );
+    return () => sub.remove();
+  }, []);
+  const rename = async () => {
+    if (nameSaving) return;
+    setNameSaving(true);
+    try {
+      const name = validDeviceName(nameDraft);
+      await saveLocal("tunnel-device-name", name);
+      setDeviceName(name);
+      if (credentials) {
+        const updated = { ...credentials, deviceName: name };
+        await saveCredentials(updated);
+        setCredentials(updated);
+      }
+      setNameSaved(true);
+      setTimeout(() => setNameSaved(false), 1500);
+      setToast("Device name saved.");
+    } catch (e) {
+      setToast((e as Error).message);
+    } finally {
+      setNameSaving(false);
+    }
+  };
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (e) =>
+      setKeyboardHeight(e.endCoordinates.height),
+    );
+    const hide = Keyboard.addListener("keyboardDidHide", () =>
+      setKeyboardHeight(0),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
   const label =
     page === "send"
       ? "Context, in "
@@ -434,7 +671,9 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
   const results = history.filter(
     (q) =>
       (filter === "all" || q.direction === filter) &&
-      q.text.toLowerCase().includes(search.toLowerCase()),
+      (q.text + " " + (q.attachments ?? []).map((a) => a.name).join(" "))
+        .toLowerCase()
+        .includes(search.toLowerCase()),
   );
   const iconButton = (
     icon: React.ReactNode,
@@ -494,131 +733,263 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={s.heading}>
-          <Text style={[s.eyebrow, muted]}>
-            A LITTLE CLOSER. A LOT LESS FRICTION.
-          </Text>
-          <Text style={[s.title, body]}>
-            {label}
-            <Text
-              style={{
-                fontFamily: "InstrumentSerif_400Regular_Italic",
-                color: c.primary,
-              }}
-            >
-              {italic}
+        {page !== "send" && (
+          <View style={s.heading}>
+            <Text style={[s.title, body]}>
+              {label}
+              <Text
+                style={{
+                  fontFamily: "InstrumentSerif_400Regular_Italic",
+                  color: c.primary,
+                }}
+              >
+                {italic}
+              </Text>
             </Text>
-          </Text>
-          <Text style={[s.subtitle, muted]}>
-            {page === "send"
-              ? "A thought, a link, a little context. Right where you need it."
-              : page === "history"
-                ? "Everything that passed through your tunnel."
+            <Text style={[s.subtitle, muted]}>
+              {page === "history"
+                ? "All quanta you've tunneled"
                 : page === "devices"
                   ? "One scan. Two devices. A shorter distance."
                   : "Powered by Aurora. Tuned to your comfort."}
-          </Text>
-        </View>
+            </Text>
+          </View>
+        )}
         {page === "send" ? (
-          <View style={s.sendPage}>
-            <View style={s.composerRow}>
-              <View
-                style={[
-                  s.card,
-                  { backgroundColor: c.paper, borderColor: c.line },
-                ]}
-              >
-                <View style={s.cardCaption}>
-                  <Text style={[s.micro, muted]}>● YOUR QUANTA</Text>
-                  <Text style={[s.micro, muted]}>TEXT / 01</Text>
-                </View>
-                <Animated.View
-                  style={{
-                    flex: 1,
-                    opacity: motion.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [1, 0.1],
-                    }),
-                    transform: [
-                      {
-                        translateY: motion.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0, -70],
-                        }),
-                      },
-                    ],
-                  }}
-                >
-                  <TextInput
-                    ref={input}
-                    style={[s.input, body]}
-                    multiline
-                    textAlignVertical="top"
-                    value={draft}
-                    onChangeText={setDraft}
-                    accessibilityLabel="Quanta text"
-                    placeholder=" "
-                    selectionColor={c.primary}
-                  />
-                  {!draft && (
-                    <View pointerEvents="none" style={s.emptyQuanta}>
-                      <Orbit color={c.primary} />
-                      <Text style={[s.placeholderTitle, body]}>
-                        Ready to appear{"\n"}somewhere else?
-                      </Text>
-                      <Text style={[s.placeholderHint, muted]}>
-                        Tap here and let a thought in.
-                      </Text>
-                    </View>
-                  )}
-                </Animated.View>
-                <View style={s.cardFooter}>
-                  <Text style={[s.footerText, muted]}>
-                    {draft
-                      ? draft.length.toLocaleString() + " characters"
-                      : "A blank space. A small possibility."}
-                  </Text>
-                </View>
-              </View>
+          <View
+            style={[
+              s.sendPage,
+              {
+                flexDirection: sendLayout === "under" ? "column" : "row",
+                gap: 10,
+                paddingTop: 14,
+                paddingBottom: 12,
+              },
+            ]}
+          >
+            {sendLayout === "left" && (
               <SendRail
                 c={c}
-                ready={!!draft.trim() && status === "connected"}
+                ready={
+                  (!!draft.trim() || !!attachments.length) &&
+                  status === "connected"
+                }
                 busy={busy}
                 onSend={() => void send()}
               />
+            )}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={s.composerRow}>
+                <View
+                  style={[
+                    s.card,
+                    { backgroundColor: c.paper, borderColor: c.line },
+                  ]}
+                >
+                  <View style={s.cardCaption}>
+                    <Text style={[s.micro, muted]}>● YOUR QUANTA</Text>
+                    <Text style={[s.micro, muted]}>TEXT / 01</Text>
+                  </View>
+                  <Animated.View
+                    style={{
+                      flex: 1,
+                      opacity: motion.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 0.1],
+                      }),
+                      transform: [
+                        {
+                          translateY: motion.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, -70],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
+                    <TextInput
+                      ref={input}
+                      style={[s.input, body]}
+                      multiline
+                      textAlignVertical="top"
+                      value={draft}
+                      onChangeText={setDraft}
+                      accessibilityLabel="Quanta text"
+                      placeholder=" "
+                      selectionColor={c.primary}
+                    />
+                    {!draft && !attachments.length && (
+                      <View pointerEvents="none" style={s.emptyQuanta}>
+                        <Orbit color={c.primary} />
+                        <Text style={[s.placeholderTitle, body]}>
+                          {composerPrompts[prompt]}
+                        </Text>
+                        <Text style={[s.placeholderHint, muted]}>
+                          Tap here and let a thought in.
+                        </Text>
+                      </View>
+                    )}
+                  </Animated.View>
+                  {!!attachments.length && (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={{
+                        flexGrow: 0,
+                        maxHeight: 130,
+                        borderTopWidth: 1,
+                        borderColor: c.line,
+                      }}
+                      contentContainerStyle={{ padding: 12, gap: 10 }}
+                    >
+                      {attachments.map((a, i) => (
+                        <View
+                          key={a.uri ?? i}
+                          style={{
+                            width: 120,
+                            borderRadius: 13,
+                            borderWidth: 1,
+                            borderColor: c.line,
+                            overflow: "hidden",
+                            backgroundColor: c.surface,
+                          }}
+                        >
+                          <View
+                            style={{
+                              height: 64,
+                              backgroundColor: c.tint,
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
+                          >
+                            {a.mimeType.startsWith("image/") ? (
+                              <Image
+                                source={{ uri: a.uri }}
+                                resizeMode="contain"
+                                style={{ width: "100%", height: 64 }}
+                              />
+                            ) : (
+                              <Paperclip color={c.primary} size={23} />
+                            )}
+                          </View>
+                          <Text
+                            numberOfLines={1}
+                            style={[s.footerText, body, { padding: 8 }]}
+                          >
+                            {a.name}
+                          </Text>
+                          <Pressable
+                            accessibilityLabel={"Remove " + a.name}
+                            disabled={busy}
+                            onPress={() =>
+                              setAttachments((old) =>
+                                old.filter((_, n) => n !== i),
+                              )
+                            }
+                            hitSlop={5}
+                            style={{
+                              position: "absolute",
+                              top: 4,
+                              right: 4,
+                              backgroundColor: c.paper,
+                              borderRadius: 15,
+                              padding: 5,
+                            }}
+                          >
+                            <X size={13} color={c.ink} />
+                          </Pressable>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  )}
+                  <View style={s.cardFooter}>
+                    <Text style={[s.footerText, muted]}>
+                      {draft
+                        ? draft.length.toLocaleString() + " characters"
+                        : ""}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              <View style={s.actions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Attach images or files"
+                  onPress={() => void attach()}
+                  disabled={busy}
+                  style={[
+                    s.action,
+                    { borderColor: c.line, backgroundColor: c.paper },
+                  ]}
+                >
+                  <Paperclip size={23} color={c.primary} />
+                  <Text style={[s.actionText, body]}>Attach something</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Paste from clipboard"
+                  onPress={() => void paste()}
+                  style={[
+                    s.action,
+                    { borderColor: c.line, backgroundColor: c.paper },
+                  ]}
+                >
+                  <ClipboardIcon size={23} color={c.primary} />
+                  <Text style={[s.actionText, body]}>Paste from clipboard</Text>
+                </Pressable>
+              </View>
             </View>
-            <View style={s.actions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Attach something. Coming soon."
-                onPress={() =>
-                  setToast("Attachments are next. This tunnel carries text.")
+            {sendLayout === "right" && (
+              <SendRail
+                c={c}
+                ready={
+                  (!!draft.trim() || !!attachments.length) &&
+                  status === "connected"
                 }
-                style={[
-                  s.action,
-                  { borderColor: c.line, backgroundColor: c.paper },
-                ]}
-              >
-                <Paperclip size={23} color={c.primary} />
-                <Text style={[s.actionText, body]}>Attach something</Text>
-                <Text style={[s.soon, muted]}>SOON</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Paste from clipboard"
-                onPress={() => void paste()}
-                style={[
-                  s.action,
-                  { borderColor: c.line, backgroundColor: c.paper },
-                ]}
-              >
-                <ClipboardIcon size={23} color={c.primary} />
-                <Text style={[s.actionText, body]}>Paste from clipboard</Text>
-              </Pressable>
-            </View>
-            <Text style={[s.sendHint, muted]}>
-              ↑ Slide the particle up. Let your thought move.
-            </Text>
+                busy={busy}
+                onSend={() => void send()}
+              />
+            )}
+            {sendLayout === "under" &&
+              (underControl === "slider" ? (
+                <SendRail
+                  horizontal
+                  c={c}
+                  ready={
+                    (!!draft.trim() || !!attachments.length) &&
+                    status === "connected"
+                  }
+                  busy={busy}
+                  onSend={() => void send()}
+                />
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={
+                    busy ||
+                    status !== "connected" ||
+                    (!draft.trim() && !attachments.length)
+                  }
+                  onPress={() => void send()}
+                  style={({ pressed }) => ({
+                    height: 58,
+                    borderRadius: 18,
+                    backgroundColor: c.primary,
+                    opacity: pressed ? 0.65 : 1,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  })}
+                >
+                  <Text
+                    style={{
+                      color: c.onPrimary,
+                      fontFamily: "DMSans_600SemiBold",
+                    }}
+                  >
+                    {busy ? "Tunneling…" : "Tunnel"}
+                  </Text>
+                </Pressable>
+              ))}
           </View>
         ) : (
           <ScrollView
@@ -634,7 +1005,7 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
                     { backgroundColor: c.paper, borderColor: c.line },
                   ]}
                 >
-                  {(["all", "sent", "received"] as const).map((f) => (
+                  {(["received", "sent", "all"] as const).map((f) => (
                     <Pressable
                       key={f}
                       accessibilityRole="button"
@@ -697,7 +1068,13 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
                           <Copy size={17} color={c.muted} />,
                           "Copy transfer text",
                           () =>
-                            void Clipboard.setStringAsync(q.text)
+                            void (
+                              q.text
+                                ? Clipboard.setStringAsync(q.text)
+                                : Promise.reject(
+                                    new Error("This quanta contains files."),
+                                  )
+                            )
                               .then(() => setToast("Copied to clipboard."))
                               .catch(() => setToast("Could not copy.")),
                         )}
@@ -705,6 +1082,106 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
                       <Text selectable style={[s.historyText, body]}>
                         {q.text}
                       </Text>
+                      {(q.attachments ?? []).map((a, i) => (
+                        <View
+                          key={i}
+                          style={{
+                            borderWidth: 1,
+                            borderColor: c.line,
+                            borderRadius: 16,
+                            overflow: "hidden",
+                            marginBottom: 12,
+                            backgroundColor: c.surface,
+                          }}
+                        >
+                          <Pressable
+                            disabled={!a.mimeType.startsWith("image/")}
+                            accessibilityLabel={"View " + a.name}
+                            onPress={() => setViewImage(a)}
+                            style={{
+                              height: a.mimeType.startsWith("image/")
+                                ? 155
+                                : 58,
+                              backgroundColor: c.tint,
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            {a.mimeType.startsWith("image/") ? (
+                              <Image
+                                source={{ uri: a.uri }}
+                                resizeMode="contain"
+                                style={{ width: "100%", height: 155 }}
+                              />
+                            ) : (
+                              <Paperclip color={c.primary} />
+                            )}
+                          </Pressable>
+                          <View style={{ padding: 12 }}>
+                            <Text
+                              numberOfLines={2}
+                              style={[s.actionText, body]}
+                            >
+                              {a.name}
+                            </Text>
+                            <Text
+                              style={[s.footerText, muted, { marginTop: 5 }]}
+                            >
+                              {(a.size / 1048576).toFixed(2)} MB
+                            </Text>
+                          </View>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              borderTopWidth: 1,
+                              borderColor: c.line,
+                            }}
+                          >
+                            <Pressable
+                              accessibilityLabel={"Save " + a.name}
+                              onPress={() =>
+                                void saveFile(a)
+                                  .then(() => setToast("Saved " + a.name))
+                                  .catch((e) => setToast(e.message))
+                              }
+                              style={{
+                                flex: 1,
+                                minHeight: 48,
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <Text
+                                style={[s.actionText, { color: c.primary }]}
+                              >
+                                Save
+                              </Text>
+                            </Pressable>
+                            <Pressable
+                              accessibilityLabel={"Share " + a.name}
+                              onPress={() =>
+                                void shareFile(a).catch((e) =>
+                                  setToast(e.message),
+                                )
+                              }
+                              style={{
+                                flex: 1,
+                                minHeight: 48,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderLeftWidth: 1,
+                                borderColor: c.line,
+                              }}
+                            >
+                              <Text
+                                style={[s.actionText, { color: c.primary }]}
+                              >
+                                Share
+                              </Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
                       <View style={s.historyMeta}>
                         <CheckCheck
                           size={13}
@@ -749,7 +1226,7 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
                         : "Your thoughts will leave a trail."}
                     </Text>
                     <Text style={[s.subtitle, muted]}>
-                      Sent and received text will appear here.
+                      Sent and received quanta will appear here.
                     </Text>
                   </View>
                 )}
@@ -787,6 +1264,51 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
             )}
             {page === "devices" && (
               <>
+                <View
+                  style={[
+                    s.panel,
+                    { backgroundColor: c.paper, borderColor: c.line },
+                  ]}
+                >
+                  <Text style={[s.sectionTitle, body]}>This phone’s name</Text>
+                  <TextInput
+                    accessibilityLabel="Device name"
+                    value={nameDraft}
+                    onChangeText={setNameDraft}
+                    maxLength={80}
+                    style={[
+                      s.search,
+                      body,
+                      { borderColor: c.line, backgroundColor: c.surface },
+                    ]}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => void rename()}
+                    disabled={nameSaving}
+                    style={({ pressed }) => [
+                      s.softButton,
+                      {
+                        backgroundColor: nameSaved ? c.primary : c.tint,
+                        transform: [{ scale: pressed ? 0.97 : 1 }],
+                        opacity: pressed ? 0.8 : 1,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        s.actionText,
+                        { color: nameSaved ? c.onPrimary : c.tintInk },
+                      ]}
+                    >
+                      {nameSaving
+                        ? "Saving…"
+                        : nameSaved
+                          ? "✓ Saved"
+                          : "Save name"}
+                    </Text>
+                  </Pressable>
+                </View>
                 <View
                   style={[
                     s.panel,
@@ -891,12 +1413,106 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
                   </Text>
                 </View>
                 <Text style={[s.sendHint, muted]}>
-                  Keep Tunnel open on your phone to receive desktop text.
+                  Tunnel stays connected in the background on Android.
                 </Text>
               </>
             )}
             {page === "settings" && (
               <>
+                <View
+                  style={[
+                    s.panel,
+                    { backgroundColor: c.paper, borderColor: c.line },
+                  ]}
+                >
+                  <Text style={[s.sectionTitle, body]}>Send control</Text>
+                  <Text style={[s.subtitle, muted]}>
+                    Put the particle where your hand expects it.
+                  </Text>
+                  <View style={s.segmented}>
+                    {(["left", "right", "under"] as const).map((position) => (
+                      <Pressable
+                        key={position}
+                        onPress={() =>
+                          void saveLocal("tunnel-send-layout", position)
+                            .then(() => setSendLayout(position))
+                            .catch(() => setToast("Could not save layout."))
+                        }
+                        style={[
+                          s.segment,
+                          {
+                            backgroundColor:
+                              sendLayout === position ? c.tint : "transparent",
+                          },
+                        ]}
+                      >
+                        <Text style={[s.actionText, body]}>
+                          {position[0].toUpperCase() + position.slice(1)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  {sendLayout === "under" && (
+                    <View style={s.segmented}>
+                      {(["slider", "button"] as const).map((control) => (
+                        <Pressable
+                          key={control}
+                          onPress={() =>
+                            void saveLocal("tunnel-under-control", control)
+                              .then(() => setUnderControl(control))
+                              .catch(() => setToast("Could not save control."))
+                          }
+                          style={[
+                            s.segment,
+                            {
+                              backgroundColor:
+                                underControl === control
+                                  ? c.tint
+                                  : "transparent",
+                            },
+                          ]}
+                        >
+                          <Text style={[s.actionText, body]}>
+                            {control[0].toUpperCase() + control.slice(1)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </View>
+                <View
+                  style={[
+                    s.panel,
+                    { backgroundColor: c.paper, borderColor: c.line },
+                  ]}
+                >
+                  <Text style={[s.sectionTitle, body]}>
+                    Share straight away
+                  </Text>
+                  <Text style={[s.subtitle, muted]}>
+                    Shared quanta tunnel in the background. Turn off to review
+                    and add a note first.
+                  </Text>
+                  {(["text", "image", "file"] as const).map((key) => (
+                    <View key={key} style={[s.settingRow, { marginTop: 18 }]}>
+                      <Text style={[s.settingTitle, body, { flex: 1 }]}>
+                        {key === "text"
+                          ? "Text"
+                          : key === "image"
+                            ? "Images"
+                            : "Other files"}
+                      </Text>
+                      <Switch
+                        accessibilityLabel={
+                          "Automatically tunnel shared " + key
+                        }
+                        value={shareSettings[key]}
+                        onValueChange={(v) => void changeShareSetting(key, v)}
+                        trackColor={{ true: c.primary, false: c.line }}
+                      />
+                    </View>
+                  ))}
+                </View>
                 <View
                   style={[
                     s.panel,
@@ -1039,7 +1655,7 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
       <Modal
         visible={menu}
         transparent
-        animationType="fade"
+        animationType="none"
         onRequestClose={() => setMenu(false)}
       >
         <Pressable style={s.scrim} onPress={() => setMenu(false)}>
@@ -1096,16 +1712,132 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
           </Text>
         </SafeAreaView>
       </Modal>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            opacity: arrivalOpacity,
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "transparent",
+          },
+        ]}
+      >
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: c.tint, opacity: 0.18 },
+          ]}
+        />
+        <Animated.View
+          style={{
+            width: viewport.width * 1.2,
+            height: viewport.width * 1.2,
+            borderRadius: viewport.width,
+            borderWidth: 2,
+            borderColor: c.primary,
+            transform: [{ scale: arrivalScale }],
+          }}
+        />
+      </Animated.View>
+      <Modal
+        visible={!!viewImage}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewImage(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            padding: 20,
+            backgroundColor: c.surface,
+          }}
+        >
+          <View
+            style={{
+              borderRadius: 22,
+              borderWidth: 1,
+              borderColor: c.line,
+              backgroundColor: c.paper,
+              padding: 16,
+            }}
+          >
+            <Pressable
+              accessibilityLabel="Close image"
+              onPress={() => setViewImage(null)}
+              style={{ alignSelf: "flex-end", padding: 12 }}
+            >
+              <X color={c.ink} />
+            </Pressable>
+            <Image
+              source={{ uri: viewImage?.uri }}
+              resizeMode="contain"
+              style={{ width: "100%", height: viewport.height * 0.5 }}
+            />
+            <Text style={[s.actionText, body, { marginVertical: 14 }]}>
+              {viewImage?.name}
+            </Text>
+            <Pressable
+              onPress={() =>
+                viewImage &&
+                void saveFile(viewImage)
+                  .then(() => setToast("Image saved."))
+                  .catch((e) => setToast(e.message))
+              }
+              style={[s.softButton, { backgroundColor: c.tint }]}
+            >
+              <Text style={{ color: c.tintInk }}>Save image</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
       {!!toast && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={toast + ". Dismiss message."}
+          accessibilityLabel={
+            toast +
+            (toast.startsWith("Quanta received")
+              ? ". View history."
+              : ". Dismiss message.")
+          }
           accessibilityLiveRegion="polite"
-          onPress={() => setToast("")}
-          style={[s.toast, { backgroundColor: c.tint, borderColor: c.line }]}
+          onPress={() => {
+            if (
+              toast.startsWith("Quanta received") ||
+              toast.startsWith("Received. Copy")
+            )
+              navigate("history");
+            setToast("");
+          }}
+          style={[
+            s.toast,
+            {
+              backgroundColor: c.tint,
+              borderColor: c.line,
+              bottom: keyboardHeight
+                ? Math.max(
+                    12,
+                    keyboardHeight -
+                      (Dimensions.get("screen").height - viewport.height) +
+                      12,
+                  )
+                : 60,
+            },
+          ]}
         >
           <Text style={[s.toastText, { color: c.tintInk }]}>{toast}</Text>
-          <X size={15} color={c.tintInk} />
+          <Pressable
+            accessibilityLabel="Dismiss message"
+            hitSlop={8}
+            onPress={(e) => {
+              e.stopPropagation();
+              setToast("");
+            }}
+          >
+            <X size={15} color={c.tintInk} />
+          </Pressable>
         </Pressable>
       )}
     </SafeAreaView>
@@ -1140,7 +1872,7 @@ const styles = StyleSheet.create({
   },
   connectionText: { fontSize: 9 },
   statusDot: { width: 5, height: 5, borderRadius: 3 },
-  heading: { paddingHorizontal: 22, paddingTop: 26, paddingBottom: 23 },
+  heading: { paddingHorizontal: 22, paddingTop: 18, paddingBottom: 20 },
   eyebrow: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 8,
@@ -1181,11 +1913,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingBottom: 12,
+    paddingHorizontal: 24,
   },
   placeholderTitle: {
     fontFamily: "InstrumentSerif_400Regular",
-    fontSize: 31,
-    lineHeight: 35,
+    fontSize: 24,
+    lineHeight: 28,
+    maxWidth: 210,
     textAlign: "center",
     marginTop: 20,
     marginBottom: 10,

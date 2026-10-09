@@ -1,17 +1,25 @@
-import { useRef, useState } from "react";
-import { Animated, PanResponder, Text, View } from "react-native";
-import { ArrowUp, Check } from "lucide-react-native";
+import { useRef, useState, useEffect } from "react";
+import {
+  Animated,
+  PanResponder,
+  Text,
+  View,
+  AccessibilityInfo,
+} from "react-native";
+import { ArrowUp, ArrowRight } from "lucide-react-native";
+import { shouldLaunchQuanta } from "@tunnel/shared/composer";
 import * as Haptics from "expo-haptics";
-
 export default function SendRail({
   ready,
   busy,
   onSend,
   c,
+  horizontal = false,
 }: {
   ready: boolean;
   busy: boolean;
   onSend: () => void;
+  horizontal?: boolean;
   c: {
     primary: string;
     onPrimary: string;
@@ -20,101 +28,142 @@ export default function SendRail({
     muted: string;
   };
 }) {
-  const progress = useRef(new Animated.Value(0)).current;
-  const [height, setHeight] = useState(360);
+  const progress = useRef(new Animated.Value(0)).current,
+    fade = useRef(new Animated.Value(1)).current,
+    burst = useRef(new Animated.Value(1)).current;
+  const [length, setLength] = useState(360);
   const [armed, setArmed] = useState(false);
-  const current = useRef({ ready, busy, onSend, height, armed });
-  current.current = { ready, busy, onSend, height, armed };
-  const accessibilityProgress = useRef(0);
+  const launching = useRef(false);
+  const reduced = useRef(false);
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then((v) => {
+      reduced.current = v;
+    });
+  }, []);
+  const current = useRef({ ready, busy, onSend, length, horizontal, armed });
+  current.current = { ready, busy, onSend, length, horizontal, armed };
   const reset = () => {
     setArmed(false);
-    accessibilityProgress.current = 0;
-    Animated.spring(progress, { toValue: 0, useNativeDriver: true }).start();
+    Animated.timing(progress, {
+      toValue: 0,
+      duration: 140,
+      useNativeDriver: true,
+    }).start();
+  };
+  const launch = () => {
+    if (launching.current || !current.current.ready || current.current.busy)
+      return;
+    launching.current = true;
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: reduced.current ? 0 : 180,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) {
+        launching.current = false;
+        reset();
+        return;
+      }
+      current.current.onSend();
+      Animated.parallel([
+        Animated.timing(burst, {
+          toValue: 1.8,
+          duration: reduced.current ? 0 : 140,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fade, {
+          toValue: 0,
+          duration: reduced.current ? 0 : 140,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        progress.setValue(0);
+        burst.setValue(1);
+        setArmed(false);
+        Animated.timing(fade, {
+          toValue: 1,
+          duration: reduced.current ? 0 : 160,
+          useNativeDriver: true,
+        }).start(() => {
+          launching.current = false;
+        });
+      });
+    });
   };
   const responder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () =>
-        current.current.ready && !current.current.busy,
+        current.current.ready && !current.current.busy && !launching.current,
       onMoveShouldSetPanResponder: (_, g) =>
-        current.current.ready && !current.current.busy && Math.abs(g.dy) > 5,
+        current.current.ready &&
+        !current.current.busy &&
+        !launching.current &&
+        Math.abs(current.current.horizontal ? g.dx : g.dy) > 5,
       onPanResponderMove: (_, g) => {
-        const p = Math.max(
-          0,
-          Math.min(1, -g.dy / (current.current.height - 84)),
+        const distance = current.current.horizontal ? g.dx : -g.dy;
+        const velocity = current.current.horizontal ? -g.vx : g.vy;
+        progress.setValue(
+          Math.max(
+            0,
+            Math.min(1, distance / Math.max(1, current.current.length - 84)),
+          ),
         );
-        progress.setValue(p);
-        const next = p >= 0.8;
+        const next = shouldLaunchQuanta(
+          distance,
+          current.current.length - 84,
+          velocity,
+        );
         if (next && !current.current.armed)
           void Haptics.selectionAsync().catch(() => {});
         setArmed(next);
       },
       onPanResponderRelease: (_, g) => {
-        const done = -g.dy / (current.current.height - 84) >= 0.8;
-        reset();
-        if (done && current.current.ready && !current.current.busy)
-          current.current.onSend();
+        if (
+          shouldLaunchQuanta(
+            current.current.horizontal ? g.dx : -g.dy,
+            current.current.length - 84,
+            current.current.horizontal ? -g.vx : g.vy,
+          )
+        )
+          launch();
+        else reset();
       },
-      onPanResponderTerminate: () => reset(),
+      onPanResponderTerminate: reset,
     }),
   ).current;
+  const Icon = horizontal ? ArrowRight : ArrowUp;
   return (
     <View
-      onLayout={(e) => setHeight(e.nativeEvent.layout.height)}
+      onLayout={(e) =>
+        setLength(
+          horizontal ? e.nativeEvent.layout.width : e.nativeEvent.layout.height,
+        )
+      }
       {...responder.panHandlers}
       accessible
-      accessibilityRole="adjustable"
-      accessibilityLabel="Slide up to send quanta"
-      accessibilityHint="Swipe up along the rail, or use the send accessibility action."
+      accessibilityRole="button"
+      accessibilityLabel={
+        horizontal ? "Slide right to tunnel" : "Flick up to tunnel"
+      }
       accessibilityState={{ disabled: !ready || busy }}
-      accessibilityActions={[
-        { name: "increment", label: "Move up to send" },
-        { name: "activate", label: "Send quanta" },
-      ]}
-      onAccessibilityAction={(e) => {
-        if (!ready || busy) return;
-        if (e.nativeEvent.actionName === "activate") {
-          onSend();
-          return;
-        }
-        accessibilityProgress.current += 0.25;
-        if (accessibilityProgress.current >= 1) {
-          reset();
-          onSend();
-        } else progress.setValue(accessibilityProgress.current);
-      }}
+      accessibilityActions={[{ name: "activate", label: "Tunnel quanta" }]}
+      onAccessibilityAction={launch}
       style={{
-        width: 50,
+        width: horizontal ? "100%" : 56,
+        height: horizontal ? 60 : undefined,
         borderWidth: 1,
         borderColor: c.line,
         borderRadius: 22,
         backgroundColor: c.paper,
-        alignItems: "center",
         overflow: "hidden",
       }}
     >
       <View
         style={{
-          width: 31,
-          height: 31,
-          borderWidth: 1,
-          borderColor: armed ? c.primary : c.line,
-          borderRadius: 18,
-          marginTop: 12,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {armed ? (
-          <Check size={17} color={c.primary} />
-        ) : (
-          <ArrowUp size={17} color={c.muted} />
-        )}
-      </View>
-      <View
-        style={{
           position: "absolute",
-          top: 62,
-          bottom: 76,
+          ...(horizontal
+            ? { left: 62, right: 68, top: 28, flexDirection: "row" as const }
+            : { top: 62, bottom: 76, left: 25 }),
           justifyContent: "space-between",
         }}
       >
@@ -122,11 +171,11 @@ export default function SendRail({
           <View
             key={i}
             style={{
-              width: 3,
-              height: 3,
-              backgroundColor: c.primary,
-              opacity: 0.25 + i * 0.03,
+              width: 4,
+              height: 4,
               borderRadius: 2,
+              backgroundColor: c.primary,
+              opacity: 0.3,
             }}
           />
         ))}
@@ -135,20 +184,25 @@ export default function SendRail({
         pointerEvents="none"
         style={{
           position: "absolute",
-          top: "50%",
-          width: 150,
-          transform: [{ rotate: "-90deg" }],
+          ...(horizontal
+            ? { left: 0, right: 0, top: 18 }
+            : {
+                top: "50%",
+                left: -48,
+                width: 150,
+                transform: [{ rotate: "-90deg" }],
+              }),
         }}
       >
         <Text
           style={{
-            color: c.muted,
-            fontFamily: "DMSans_600SemiBold",
             fontSize: 8,
+            fontFamily: "DMSans_600SemiBold",
             letterSpacing: 2,
+            color: c.muted,
             textAlign: "center",
             backgroundColor: c.paper,
-            padding: 9,
+            padding: 7,
           }}
         >
           {busy ? "TUNNELING" : "SLIDE TO SEND"}
@@ -157,26 +211,35 @@ export default function SendRail({
       <Animated.View
         style={{
           position: "absolute",
-          bottom: 12,
-          width: 34,
-          height: 48,
+          ...(horizontal
+            ? { left: 12, top: 12, width: 38, height: 36 }
+            : { bottom: 12, left: 10, width: 34, height: 48 }),
           borderRadius: 20,
+          backgroundColor: ready ? c.primary : c.paper,
           borderWidth: 1,
           borderColor: ready ? c.primary : c.line,
-          backgroundColor: ready ? c.primary : c.paper,
-          justifyContent: "center",
           alignItems: "center",
+          justifyContent: "center",
+          opacity: fade,
           transform: [
-            {
-              translateY: progress.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, -(height - 84)],
-              }),
-            },
+            horizontal
+              ? {
+                  translateX: progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, Math.max(0, length - 84)],
+                  }),
+                }
+              : {
+                  translateY: progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -Math.max(0, length - 84)],
+                  }),
+                },
+            { scale: burst },
           ],
         }}
       >
-        <ArrowUp size={24} color={ready ? c.onPrimary : c.muted} />
+        <Icon size={22} color={ready ? c.onPrimary : c.muted} />
       </Animated.View>
     </View>
   );

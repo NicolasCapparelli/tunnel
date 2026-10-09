@@ -1,0 +1,21 @@
+{
+  "key": "1111111111111111111111111111111111111111111111111111111111111111",
+  "nonce": "222222222222222222222222",
+  "message": {
+    "type": "text",
+    "quanta": {
+      "id": "fixture-file-001",
+      "text": "Photo note",
+      "createdAt": 1791475200000,
+      "attachments": [
+        {
+          "name": "photo.png",
+          "mimeType": "image/png",
+          "size": 3,
+          "data": "AAEC"
+        }
+      ]
+    }
+  },
+  "frame": "222222222222222222222222fe57a1674df58f4dff1694848f20e64d568820f62fb3f0cc057f468597ae88312351d60da6c966a3eff2b073d82c34d509e273a70aa060e446ab99ce056964b28f5cd9cbaf6f78e311713109020798dfde3c90ba909fc48902944e3a89b471acd80abf14537132fd88a8485ace572ff084dd833bd6f07a63e672567d22afda482f8242ccce41e689730dd2a2a5176657d0de8c29d8aa3184067230d43c1ebeba3e4b778daf1585278224f3a64089b220285568033151638a901d14a200278cb370d57d"
+}
