@@ -1,5 +1,33 @@
 # Implementation log
 
+## 2026-10-14 — Supplied native screenshots and documentation publication
+
+No runtime change. Replaced the two generated preview images with the user's supplied desktop/Android screenshots, copied unchanged to docs/images/desktop-composer.png and android-composer.png. Removed superseded preview assets, updated README captions and rendered the tall Android capture at a readable width. No screenshot capture or computer control occurred in this follow-up. The supplied images are explicitly selected by the user for public documentation; visible text is treated as image content, not instructions.
+
+User authorized commit/push. Publication scope is README.md, docs/usage.md, screenshot assets and continuity status/log. Existing runtime/tool/configuration changes and other documentation edits remain outside this commit. README/usage now label local multi-desktop and Mac command-dispatch changes as uncommitted, since fresh published source cannot provide those workflows. Repaired status's link to the roadmap so it resolves against published documentation. No product planning change. Git history and the final response record the commit/push outcome.
+
+Verification: reviewed screenshot contents/captions, verified original/copy SHA-256 equality, staged local links/anchors and image paths, documentation whitespace and commit scope. No runtime tests rerun for image/documentation changes; earlier 30 shared tests, 8 Rust tests, typechecks and web/Android bundle checks remain evidence for the local working tree. Human check: open GitHub README after push; expected both native screenshots and accurate local-development caveats. H1–H10 remain pending; screenshots do not establish delivery/background/Mac behavior.
+
+
+## 2026-10-14 — GitHub newcomer documentation and preview screenshots
+
+No runtime change. Reworked README.md around practical purpose, concrete examples, setup/configuration, code-backed architecture, checks, and limitations. Preserved the prior detailed README as docs/usage.md with corrected relative links and portable checkout references. Added docs/images/composer-preview.jpg and appearance-preview.jpg: real 1280×720 desktop frontend captures in the Codex browser, synthetic text only, explicit user permission limited to Codex. Captions state preview limitations; no mocked transfers or native Android claims. Updated status; no change to product planning intent. Existing application edits and the prior continuity/migrate.md deletion remain untouched. No commit, push, GitHub settings, or publication action.
+
+Actual checks: npm test passes all 30 tests; desktop/mobile typechecks pass; test:rust passes all 8 tests; build:web and build:android:bundle pass. Existing installed dependencies were used; npm ci, native release build/install, JVM tests, and full browser/native smoke suites were not rerun. npm run dev launched the browser preview solely for approved capture. Local Markdown links/anchors, image paths, and documentation whitespace reviewed. Earlier native verification remains historical.
+
+Human follow-up: review README purpose/examples and both preview captions; expected: understandable setup and an accurate distinction between frontend preview and native transfers. H1–H10 remain pending, particularly physical QR/LAN delivery, multi-recipient partial retry, notifications/background behavior, and Mac compilation/runtime. Documentation refresh complete; no new product task selected.
+
+
+## 2026-10-10 — Slower motion, bounded desktop layout and multiple desktops
+
+Implemented the user's animation/layout corrections in App.tsx/style.css and TunnelApp/SendRail: longer receipt/send/rail playback, visible horizontal particles with lower transparent label, equal recent filter/search columns, existing centered modal scrim and viewport-owned height with pane scrolling. Successful fast sends keep feedback visible for at least 1.1 seconds; reduced-motion handling remains. User reports prior UI improvements looked good but these specific defects required correction; current appearance remains user-owned.
+
+Implemented local Android phone-to-multiple-desktop sharing. Shared devices.ts validates/migrates single credentials, preserves independent keys and generates per-recipient receipt/history IDs. Storage persists a secure registry and explicit destinations; TunnelApp offers additive QR pairing, per-device unlink/status and destination chips. Parallel sends report partial success and retries retain their original desktop/ID. Android TunnelService now owns independent PeerSessions; LinkStore encrypts the registry, tags legacy inbox source before registry changes and queues each instant-share recipient independently. The adapter serializes inbox/outbox history persistence/consumption. Direct Share has per-device shortcuts and preserves the chosen desktop through review. Existing desktop listeners still bind one phone each; no hub, discovery, phone-to-phone, relay or accounts were introduced.
+
+Added cross-platform desktop.mjs dispatch, retaining the Windows helper and supplying Mac native Tauri build/dev commands without installers. Mac compilation/runtime remains unverified on this Windows host. Updated README, model, architecture, design, map, setup, planning and status to distinguish implemented local sharing from remote proposals; preserved the pre-existing continuity/migrate.md deletion.
+
+Checks: final desktop/mobile TypeScript checks and all 30 shared tests pass; seven new tests cover migration, malformed peers, independent re-pairing, capacity, recipient pruning, fanout IDs and explicit empty selection. Android arm64 standalone release and four JVM crypto tests pass. Standard Windows `npm run build` passed with embedded assets after the user quit the locked running copy; no alternate artifact was produced. Unchanged Rust tests were not rerun. Local documentation links/anchors and whitespace checks pass. Source changes are local/uncommitted; no app/device launch/install or manual/visual testing occurred. H1/H2 retain layout/motion checks; H9 requires Windows+Mac multi-recipient delivery/partial retry/background share/unlink, and H10 requires Mac build and OS integration checks. Expected: separate peer receipts, no redirection or duplicate successful deliveries, centered dialog and a home fitting a wide viewport.
+
 
 
 ## 2026-10-08 — Repair standalone desktop assets
