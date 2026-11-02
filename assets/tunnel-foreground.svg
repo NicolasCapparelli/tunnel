@@ -1,1 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><g transform="translate(112 112) scale(12.5)" fill="none" stroke="#296657" stroke-width="1.2"><ellipse cx="32" cy="32" rx="27" ry="10" transform="rotate(35 32 32)"/><ellipse cx="32" cy="32" rx="27" ry="10" transform="rotate(-35 32 32)"/><ellipse cx="32" cy="32" rx="27" ry="10" transform="rotate(90 32 32)"/><circle cx="32" cy="32" r="2.5" fill="#296657" stroke="none"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 108 108">
+  <defs>
+    <clipPath id="half-left" clipPathUnits="userSpaceOnUse"><rect width="54" height="108"/></clipPath>
+    <clipPath id="half-right" clipPathUnits="userSpaceOnUse"><rect x="54" width="54" height="108"/></clipPath>
+  </defs>
+  <rect width="108" height="108" fill="#e4ebef"/>
+  <rect width="54" height="108" fill="#376682"/>
+  <g fill="none" stroke-width="6.5">
+    <g clip-path="url(#half-left)" stroke="#f2f4ed">
+      <ellipse cx="54" cy="54" rx="26" ry="11"/>
+      <ellipse cx="54" cy="54" rx="26" ry="11" transform="rotate(90 54 54)"/>
+    </g>
+    <g clip-path="url(#half-right)" stroke="#376682">
+      <ellipse cx="54" cy="54" rx="26" ry="11"/>
+      <ellipse cx="54" cy="54" rx="26" ry="11" transform="rotate(90 54 54)"/>
+    </g>
+  </g>
+  <path fill="#e4ebef" d="M54 46.5A7.5 7.5 0 0 0 54 61.5Z"/>
+  <path fill="#376682" d="M54 46.5A7.5 7.5 0 0 1 54 61.5Z"/>
+</svg>

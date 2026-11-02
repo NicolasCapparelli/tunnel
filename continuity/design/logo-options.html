@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tunnel — launcher studies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #e4ddd2;
+    --ink: #243530;
+    --muted: #5e675f;
+    --faint: #7d776e;
+    --dot: #c23d2e;
+    --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --sans: "DM Sans", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.45;
+    color-scheme: light;
+  }
+  main {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 64px 48px 96px;
+  }
+  header { max-width: 640px; margin-bottom: 28px; }
+  header p.kicker {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  h1 {
+    margin: 0 0 16px;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 56px;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+  header p.lead {
+    margin: 0;
+    max-width: 58ch;
+    color: var(--muted);
+    font-size: 16.5px;
+  }
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin: 22px 0 8px;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+  .tools label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tools input { accent-color: #296657; width: 15px; height: 15px; }
+  .legend {
+    margin: 0 0 28px;
+    color: var(--faint);
+    font-size: 13px;
+  }
+  .group {
+    margin: 36px 0 0;
+    padding-top: 20px;
+    border-top: 1px solid rgba(36, 53, 48, 0.14);
+    font-family: var(--serif);
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .group span {
+    display: block;
+    margin-top: 6px;
+    max-width: 58ch;
+    font-family: var(--sans);
+    font-size: 14.5px;
+    letter-spacing: 0;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .group.start { border-top: 0; padding-top: 8px; }
+  article {
+    display: grid;
+    grid-template-columns: 332px minmax(0, 1fr);
+    gap: 36px 48px;
+    align-items: center;
+    padding: 36px 0 40px;
+  }
+  article + article { border-top: 1px solid rgba(36, 53, 48, 0.1); }
+  .specimen { position: relative; width: 332px; height: 248px; }
+  .tile, .badge {
+    position: absolute;
+    display: block;
+  }
+  .tile { width: 248px; height: 248px; right: 0; top: 0; }
+  .badge {
+    width: 124px;
+    height: 124px;
+    left: 0;
+    top: 62px;
+    filter: drop-shadow(0 0 0 6px var(--paper));
+  }
+  .badge-ring {
+    position: absolute;
+    left: -6px;
+    top: 56px;
+    width: 136px;
+    height: 136px;
+    border-radius: 50%;
+    background: var(--paper);
+    box-shadow: 0 10px 24px rgba(48, 38, 24, 0.1);
+  }
+  svg.mark { display: block; }
+  svg.mark.tile { width: 248px; height: 248px; }
+  svg.mark.badge { width: 124px; height: 124px; }
+  svg.mark.mini { width: 52px; height: 52px; }
+  svg.mark.s48 { width: 48px; height: 48px; }
+  .sizes .s32 svg.mark { width: 32px; height: 32px; }
+  .guide {
+    display: none;
+    position: absolute;
+    pointer-events: none;
+  }
+  .guide.for-tile { width: 248px; height: 248px; right: 0; top: 0; }
+  .guide.for-badge { width: 124px; height: 124px; left: 0; top: 62px; }
+  body.show-safe .guide { display: block; }
+  .copy { max-width: 460px; padding-top: 4px; }
+  .meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    max-width: 420px;
+    margin-bottom: 8px;
+  }
+  .num {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    color: var(--faint);
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--dot);
+  }
+  h2 {
+    margin: 0 0 10px;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 48px;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
+  .rule {
+    margin: 0;
+    max-width: 38ch;
+    color: #3c4a44;
+    font-size: 16.5px;
+  }
+  .lockup {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 26px;
+  }
+  .lockup .mini { width: 52px; height: 52px; flex: none; }
+  .lockup strong {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 42px;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .sizes {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    margin-top: 22px;
+  }
+  .sizes figure { margin: 0; }
+  .sizes .s48 { width: 48px; height: 48px; }
+  .sizes .s32 { width: 48px; height: 48px; display: flex; align-items: flex-end; }
+  .sizes .s32 svg { width: 32px; height: 32px; }
+  .sizes figcaption {
+    margin-top: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  @media (max-width: 800px) {
+    main { padding: 36px 20px 72px; }
+    h1 { font-size: 44px; }
+    article { grid-template-columns: 1fr; gap: 22px; }
+    .specimen { transform: scale(0.92); transform-origin: left center; }
+  }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <clipPath id="squircle" clipPathUnits="objectBoundingBox">
+      <path d="M1.0000 0.5000 L0.9994 0.6806 L0.9975 0.7381 L0.9944 0.7794 L0.9901 0.8126 L0.9844 0.8405 L0.9774 0.8646 L0.9691 0.8857 L0.9594 0.9043 L0.9481 0.9207 L0.9353 0.9353 L0.9207 0.9481 L0.9043 0.9594 L0.8857 0.9691 L0.8646 0.9774 L0.8405 0.9844 L0.8126 0.9901 L0.7794 0.9944 L0.7381 0.9975 L0.6806 0.9994 L0.5000 1.0000 L0.3194 0.9994 L0.2619 0.9975 L0.2206 0.9944 L0.1874 0.9901 L0.1595 0.9844 L0.1354 0.9774 L0.1143 0.9691 L0.0957 0.9594 L0.0793 0.9481 L0.0647 0.9353 L0.0519 0.9207 L0.0406 0.9043 L0.0309 0.8857 L0.0226 0.8646 L0.0156 0.8405 L0.0099 0.8126 L0.0056 0.7794 L0.0025 0.7381 L0.0006 0.6806 L0.0000 0.5000 L0.0006 0.3194 L0.0025 0.2619 L0.0056 0.2206 L0.0099 0.1874 L0.0156 0.1595 L0.0226 0.1354 L0.0309 0.1143 L0.0406 0.0957 L0.0519 0.0793 L0.0647 0.0647 L0.0793 0.0519 L0.0957 0.0406 L0.1143 0.0309 L0.1354 0.0226 L0.1595 0.0156 L0.1874 0.0099 L0.2206 0.0056 L0.2619 0.0025 L0.3194 0.0006 L0.5000 0.0000 L0.6806 0.0006 L0.7381 0.0025 L0.7794 0.0056 L0.8126 0.0099 L0.8405 0.0156 L0.8646 0.0226 L0.8857 0.0309 L0.9043 0.0406 L0.9207 0.0519 L0.9353 0.0647 L0.9481 0.0793 L0.9594 0.0957 L0.9691 0.1143 L0.9774 0.1354 L0.9844 0.1595 L0.9901 0.1874 L0.9944 0.2206 L0.9975 0.2619 L0.9994 0.3194 L1.0000 0.5000 Z"/>
+    </clipPath>
+    <clipPath id="circle" clipPathUnits="objectBoundingBox">
+      <circle cx="0.5" cy="0.5" r="0.5"/>
+    </clipPath>
+    <clipPath id="half-left" clipPathUnits="userSpaceOnUse">
+      <rect width="54" height="108"/>
+    </clipPath>
+    <clipPath id="half-right" clipPathUnits="userSpaceOnUse">
+      <rect x="54" width="54" height="108"/>
+    </clipPath>
+    <symbol id="orbits" viewBox="0 0 108 108">
+      <g fill="none" stroke="currentColor" stroke-width="5.25">
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(-35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(90 54 54)"/>
+      </g>
+    </symbol>
+    <symbol id="nucleus" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#f2f4ed"/>
+      <g fill="none" stroke="#296657" stroke-width="5.25" stroke-linecap="round">
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(-35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(90 54 54)"/>
+      </g>
+      <circle cx="54" cy="54" r="7.4" fill="#f2f4ed"/>
+      <circle cx="54" cy="54" r="4.4" fill="#296657"/>
+    </symbol>
+    <symbol id="bore" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#f0e8db"/>
+      <path fill="#9b533c" d="M32 76V54A22 22 0 0 1 76 54V76Z"/>
+      <path fill="#5c3424" d="M43 76V60A11 11 0 0 1 65 60V76Z"/>
+      <path fill="#f7f1e6" d="M49 76V67A5 5 0 0 1 59 67V76Z"/>
+    </symbol>
+    <symbol id="crossing" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <circle cx="33" cy="54" r="7.5" fill="#e4ebef"/>
+      <circle cx="75" cy="54" r="11.5" fill="#376682"/>
+    </symbol>
+    <symbol id="electron" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#f2f4ed"/>
+      <g fill="none" stroke="#296657" stroke-width="5.25">
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(-35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(90 54 54)"/>
+      </g>
+      <circle cx="54" cy="54" r="7.4" fill="#f2f4ed"/>
+      <circle cx="54" cy="54" r="4.4" fill="#296657"/>
+      <circle cx="75.7" cy="38.8" r="6.4" fill="#f2f4ed"/>
+      <circle cx="75.7" cy="38.8" r="4.2" fill="#296657"/>
+    </symbol>
+    <symbol id="breach" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#f2f4ed"/>
+      <g fill="none" stroke="#296657" stroke-width="5.25" stroke-linecap="round">
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(-35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(90 54 54)" stroke-dasharray="46.8 28 46.8"/>
+      </g>
+      <circle cx="54" cy="54" r="7.4" fill="#f2f4ed"/>
+      <circle cx="54" cy="54" r="4.4" fill="#296657"/>
+      <circle cx="68" cy="34" r="6.2" fill="#f2f4ed"/>
+      <circle cx="68" cy="34" r="4.2" fill="#296657"/>
+    </symbol>
+    <symbol id="field" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#296657"/>
+      <g fill="none" stroke="#f2f4ed" stroke-width="5.25">
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(-35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(35 54 54)"/>
+        <ellipse cx="54" cy="54" rx="26.5" ry="10.5" transform="rotate(90 54 54)"/>
+      </g>
+      <circle cx="54" cy="54" r="7.4" fill="#296657"/>
+      <circle cx="54" cy="54" r="4.4" fill="#f2f4ed"/>
+    </symbol>
+    <symbol id="stride" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <circle cx="30" cy="54" r="6.2" fill="#e4ebef"/>
+      <path fill="#e4ebef" d="M54 40A14 14 0 0 0 54 68Z"/>
+      <path fill="#376682" d="M54 40A14 14 0 0 1 54 68Z"/>
+    </symbol>
+    <symbol id="trace" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <circle cx="33" cy="54" r="7.2" fill="none" stroke="#e4ebef" stroke-width="5"/>
+      <circle cx="74" cy="54" r="11" fill="#376682"/>
+    </symbol>
+    <symbol id="rise" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <circle cx="33" cy="60" r="6.5" fill="#e4ebef"/>
+      <circle cx="70" cy="40" r="12" fill="#376682"/>
+    </symbol>
+    <symbol id="through" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <g clip-path="url(#half-left)" color="#f2f4ed"><use href="#orbits" width="108" height="108"/></g>
+      <g clip-path="url(#half-right)" color="#376682"><use href="#orbits" width="108" height="108"/></g>
+      <path fill="#376682" d="M54 46.2A7.8 7.8 0 0 0 54 61.8Z"/>
+      <path fill="#e4ebef" d="M54 46.2A7.8 7.8 0 0 1 54 61.8Z"/>
+      <path fill="#e4ebef" d="M54 48.8A5.2 5.2 0 0 0 54 59.2Z"/>
+      <path fill="#376682" d="M54 48.8A5.2 5.2 0 0 1 54 59.2Z"/>
+      <circle cx="75.7" cy="38.8" r="6.2" fill="#e4ebef"/>
+      <circle cx="75.7" cy="38.8" r="4" fill="#376682"/>
+    </symbol>
+    <symbol id="still" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <g clip-path="url(#half-left)" color="#f2f4ed"><use href="#orbits" width="108" height="108"/></g>
+      <g clip-path="url(#half-right)" color="#376682"><use href="#orbits" width="108" height="108"/></g>
+      <path fill="#376682" d="M54 46.2A7.8 7.8 0 0 0 54 61.8Z"/>
+      <path fill="#e4ebef" d="M54 46.2A7.8 7.8 0 0 1 54 61.8Z"/>
+      <path fill="#e4ebef" d="M54 48.8A5.2 5.2 0 0 0 54 59.2Z"/>
+      <path fill="#376682" d="M54 48.8A5.2 5.2 0 0 1 54 59.2Z"/>
+    </symbol>
+    <symbol id="axis" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <g fill="none" stroke-width="6.5">
+        <g clip-path="url(#half-left)" stroke="#f2f4ed">
+          <ellipse cx="54" cy="54" rx="26" ry="11"/>
+          <ellipse cx="54" cy="54" rx="26" ry="11" transform="rotate(90 54 54)"/>
+        </g>
+        <g clip-path="url(#half-right)" stroke="#376682">
+          <ellipse cx="54" cy="54" rx="26" ry="11"/>
+          <ellipse cx="54" cy="54" rx="26" ry="11" transform="rotate(90 54 54)"/>
+        </g>
+      </g>
+      <path fill="#e4ebef" d="M54 46.5A7.5 7.5 0 0 0 54 61.5Z"/>
+      <path fill="#376682" d="M54 46.5A7.5 7.5 0 0 1 54 61.5Z"/>
+    </symbol>
+    <symbol id="span" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <g fill="none" stroke-width="8">
+        <g clip-path="url(#half-left)" stroke="#f2f4ed">
+          <ellipse cx="54" cy="54" rx="24" ry="14"/>
+        </g>
+        <g clip-path="url(#half-right)" stroke="#376682">
+          <ellipse cx="54" cy="54" rx="24" ry="14"/>
+        </g>
+      </g>
+    </symbol>
+    <symbol id="risen" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <g fill="none" stroke-width="4.6">
+        <g clip-path="url(#half-left)" stroke="#f2f4ed">
+          <ellipse cx="54" cy="54" rx="18" ry="7.2" transform="rotate(-35 54 54)"/>
+          <ellipse cx="54" cy="54" rx="18" ry="7.2" transform="rotate(35 54 54)"/>
+          <ellipse cx="54" cy="54" rx="18" ry="7.2" transform="rotate(90 54 54)"/>
+        </g>
+        <g clip-path="url(#half-right)" stroke="#376682">
+          <ellipse cx="54" cy="54" rx="18" ry="7.2" transform="rotate(-35 54 54)"/>
+          <ellipse cx="54" cy="54" rx="18" ry="7.2" transform="rotate(35 54 54)"/>
+          <ellipse cx="54" cy="54" rx="18" ry="7.2" transform="rotate(90 54 54)"/>
+        </g>
+      </g>
+      <path fill="#376682" d="M54 49A5 5 0 0 0 54 59Z"/>
+      <path fill="#e4ebef" d="M54 49A5 5 0 0 1 54 59Z"/>
+      <circle cx="54" cy="54" r="3.2" fill="#296657"/>
+      <circle cx="33" cy="68" r="5.2" fill="#e4ebef"/>
+      <circle cx="74" cy="35" r="5.8" fill="#376682"/>
+    </symbol>
+    <symbol id="mouth" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#f2f4ed"/>
+      <path fill="#9b533c" d="M36 80V66A18 18 0 0 1 72 66V80Z"/>
+      <path fill="#5c3424" d="M45 80V71A9 9 0 0 1 63 71V80Z"/>
+      <path fill="#f7f1e6" d="M50 80V75A4 4 0 0 1 58 75V80Z"/>
+      <g fill="none" stroke="#296657" stroke-width="4.6">
+        <ellipse cx="54" cy="48" rx="22" ry="8.8" transform="rotate(-35 54 48)"/>
+        <ellipse cx="54" cy="48" rx="22" ry="8.8" transform="rotate(35 54 48)"/>
+        <ellipse cx="54" cy="48" rx="22" ry="8.8" transform="rotate(90 54 48)"/>
+      </g>
+      <circle cx="54" cy="48" r="6.2" fill="#f2f4ed"/>
+      <circle cx="54" cy="48" r="3.6" fill="#296657"/>
+    </symbol>
+    <symbol id="lumen" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <path fill="#9b533c" d="M34 78V58A20 20 0 0 1 74 58V78Z"/>
+      <path fill="#5c3424" d="M44 74V58A12 12 0 0 1 68 58V74Z"/>
+      <path fill="#f7f1e6" d="M50 72V56A8 8 0 0 1 66 56V72Z"/>
+      <circle cx="58" cy="61" r="6.2" fill="#296657"/>
+    </symbol>
+    <symbol id="rail" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#293632"/>
+      <rect x="26" y="47" width="56" height="16" rx="8" fill="#dde9df"/>
+      <circle cx="40" cy="55" r="4.4" fill="#296657"/>
+      <circle cx="74" cy="44" r="10" fill="#f2f4ed"/>
+    </symbol>
+    <symbol id="pair" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#f2f4ed"/>
+      <rect x="35" y="31" width="30" height="42" rx="8" fill="#296657"/>
+      <rect x="49" y="50" width="32" height="23" rx="5" fill="#9b533c"/>
+      <circle cx="57" cy="61" r="6.6" fill="#f2f4ed"/>
+    </symbol>
+  </defs>
+</svg>
+
+<main>
+  <header>
+    <p class="kicker">Launcher studies</p>
+    <h1>Tunnel</h1>
+    <p class="lead">A fourth pass. Through is cut three ways, each quieter than the last. Earlier studies are still on the sheet.</p>
+  </header>
+  <div class="tools">
+    <label><input type="checkbox" id="safe"> Show the Android safe circle</label>
+  </div>
+  <p class="legend">The large tile is the iOS squircle. The circle on its left is the same mark under the round Android mask. Anything outside the safe circle can be cropped. Small marks under each wordmark are a 48px squircle, a 48px circle, and a 32px circle.</p>
+
+  <p class="group start">Through<span>The mark that held, then three quieter cuts. Still drops the particle. Axis keeps two orbits. Span keeps one ring.</span></p>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Through, iOS squircle"><g clip-path="url(#squircle)"><use href="#through" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Through, circle mask"><g clip-path="url(#circle)"><use href="#through" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">M1</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Through</h2>
+      <p class="rule">Nucleus orbits, flipped at Stride’s wall. The core is reversed in the seam, and Electron’s particle is on the far ring.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#through" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#through" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#through" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#through" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Still, iOS squircle"><g clip-path="url(#squircle)"><use href="#still" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Still, circle mask"><g clip-path="url(#circle)"><use href="#still" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">T1</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Still</h2>
+      <p class="rule">Through, without the particle. The three orbits and the reversed core stay.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#still" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#still" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#still" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#still" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Axis, iOS squircle"><g clip-path="url(#squircle)"><use href="#axis" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Axis, circle mask"><g clip-path="url(#circle)"><use href="#axis" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">T2</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Axis</h2>
+      <p class="rule">Two orbits, one across and one upright. One reversed disc. No particle.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#axis" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#axis" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#axis" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#axis" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Span, iOS squircle"><g clip-path="url(#squircle)"><use href="#span" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Span, circle mask"><g clip-path="url(#circle)"><use href="#span" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">T3</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Span</h2>
+      <p class="rule">One ring through the wall. The color flips at the seam, and the hole is the core.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#span" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#span" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#span" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#span" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <p class="group">Mixes<span>Risen, Mouth, and Lumen, from the pass before this one.</span></p>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Risen, iOS squircle"><g clip-path="url(#squircle)"><use href="#risen" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Risen, circle mask"><g clip-path="url(#circle)"><use href="#risen" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">M2</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Risen</h2>
+      <p class="rule">The same orbits across the wall. The near particle stays low. The far one has arrived higher, off the line.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#risen" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#risen" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#risen" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#risen" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Mouth, iOS squircle"><g clip-path="url(#squircle)"><use href="#mouth" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Mouth, circle mask"><g clip-path="url(#circle)"><use href="#mouth" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">M3</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Mouth</h2>
+      <p class="rule">Bore’s clay mouth, with the three orbits standing in it. The core is still the nucleus.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#mouth" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#mouth" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#mouth" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#mouth" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Lumen, iOS squircle"><g clip-path="url(#squircle)"><use href="#lumen" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Lumen, circle mask"><g clip-path="url(#circle)"><use href="#lumen" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">M4</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Lumen</h2>
+      <p class="rule">The mouth crosses the wall. Its light has risen to the right, and the nucleus core sits in that light.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#lumen" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#lumen" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#lumen" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#lumen" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <p class="group">Nucleus<span>The in-app orbits, at the same three angles. Electron is the fork that held. Breach and Field stay for comparison.</span></p>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Nucleus, iOS squircle"><g clip-path="url(#squircle)"><use href="#nucleus" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Nucleus, circle mask"><g clip-path="url(#circle)"><use href="#nucleus" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">01</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Nucleus</h2>
+      <p class="rule">Three orbits, one core. The same angles as the in-app mark, with a stroke thick enough to survive the home screen.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#nucleus" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#nucleus" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#nucleus" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#nucleus" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Electron, iOS squircle"><g clip-path="url(#squircle)"><use href="#electron" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Electron, circle mask"><g clip-path="url(#circle)"><use href="#electron" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">N2</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Electron</h2>
+      <p class="rule">The same three orbits. One particle is out on the ring, already in motion.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#electron" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#electron" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#electron" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#electron" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Breach, iOS squircle"><g clip-path="url(#squircle)"><use href="#breach" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Breach, circle mask"><g clip-path="url(#circle)"><use href="#breach" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">N3</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Breach</h2>
+      <p class="rule">Two orbits stay closed. The third is broken, and the particle has already left the gap.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#breach" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#breach" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#breach" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#breach" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Field, iOS squircle"><g clip-path="url(#squircle)"><use href="#field" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#f2f4ed" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Field, circle mask"><g clip-path="url(#circle)"><use href="#field" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#f2f4ed" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">N4</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Field</h2>
+      <p class="rule">The same core, cut out of mineral. The orbits are the paper showing through.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#field" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#field" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#field" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#field" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <p class="group">Crossing<span>The wall is still a change of color. These move the particle: into the wall, from ring to disc, or off the line it left.</span></p>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Crossing, iOS squircle"><g clip-path="url(#squircle)"><use href="#crossing" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Crossing, circle mask"><g clip-path="url(#circle)"><use href="#crossing" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">03</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Crossing</h2>
+      <p class="rule">The wall is a change of color. Two particles: a small one still on this side, a larger one that has arrived.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#crossing" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#crossing" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#crossing" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#crossing" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Stride, iOS squircle"><g clip-path="url(#squircle)"><use href="#stride" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Stride, circle mask"><g clip-path="url(#circle)"><use href="#stride" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">C2</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Stride</h2>
+      <p class="rule">The large particle is in the wall, its colors reversed. A smaller one has not left yet.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#stride" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#stride" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#stride" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#stride" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Trace, iOS squircle"><g clip-path="url(#squircle)"><use href="#trace" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Trace, circle mask"><g clip-path="url(#circle)"><use href="#trace" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">C3</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Trace</h2>
+      <p class="rule">A ring where it was. A disc where it is.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#trace" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#trace" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#trace" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#trace" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Rise, iOS squircle"><g clip-path="url(#squircle)"><use href="#rise" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Rise, circle mask"><g clip-path="url(#circle)"><use href="#rise" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">C4</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Rise</h2>
+      <p class="rule">It does not arrive on the line it left. The far particle is higher.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#rise" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#rise" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#rise" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#rise" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <p class="group">The other three<span>Bore, Rail, and Pair, from the first pass.</span></p>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Bore, iOS squircle"><g clip-path="url(#squircle)"><use href="#bore" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#f6efe4" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Bore, circle mask"><g clip-path="url(#circle)"><use href="#bore" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#f6efe4" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">02</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Bore</h2>
+      <p class="rule">A clay mouth on dune paper. Three depths, and they stand on the same floor.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#bore" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#bore" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#bore" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#bore" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Rail, iOS squircle"><g clip-path="url(#squircle)"><use href="#rail" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#f2f4ed" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Rail, circle mask"><g clip-path="url(#circle)"><use href="#rail" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#f2f4ed" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">04</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Rail</h2>
+      <p class="rule">One track. The small particle is still on it. The large one has cleared the end.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#rail" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#rail" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#rail" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#rail" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+
+  <article>
+    <div class="specimen">
+      <svg class="mark tile" viewBox="0 0 108 108" role="img" aria-label="Pair, iOS squircle"><g clip-path="url(#squircle)"><use href="#pair" width="108" height="108"/></g></svg>
+      <svg class="guide for-tile" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.15" vector-effect="non-scaling-stroke"/></svg>
+      <div class="badge-ring" aria-hidden="true"></div>
+      <svg class="mark badge" viewBox="0 0 108 108" role="img" aria-label="Pair, circle mask"><g clip-path="url(#circle)"><use href="#pair" width="108" height="108"/></g></svg>
+      <svg class="guide for-badge" viewBox="0 0 108 108"><circle cx="54" cy="54" r="33" fill="none" stroke="#c23d2e" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    </div>
+    <div class="copy">
+      <div class="meta"><span class="num">05</span><span class="dot" aria-hidden="true"></span></div>
+      <h2>Pair</h2>
+      <p class="rule">A phone in mineral, a desk in dune. The open circle is the quanta on the corner they share.</p>
+      <div class="lockup">
+        <svg class="mark mini" viewBox="0 0 108 108" aria-hidden="true"><g clip-path="url(#squircle)"><use href="#pair" width="108" height="108"/></g></svg>
+        <strong>Tunnel</strong>
+      </div>
+      <div class="sizes" aria-hidden="true">
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#squircle)"><use href="#pair" width="108" height="108"/></g></svg><figcaption>iOS</figcaption></figure>
+        <figure><svg class="mark s48" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#pair" width="108" height="108"/></g></svg><figcaption>Circle</figcaption></figure>
+        <figure><div class="s32"><svg class="mark" viewBox="0 0 108 108"><g clip-path="url(#circle)"><use href="#pair" width="108" height="108"/></g></svg></div><figcaption>32</figcaption></figure>
+      </div>
+    </div>
+  </article>
+</main>
+<script>
+  document.getElementById("safe").addEventListener("change", (event) => {
+    document.body.classList.toggle("show-safe", event.target.checked);
+  });
+</script>
+</body>
+</html>

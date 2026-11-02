@@ -14,7 +14,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "../desktop/src-tauri/icons/android/mipmap-xxxhdpi/ic_launcher_foreground.png",
-        "backgroundColor": "#f2f4ed"
+        "backgroundColor": "#e4ebef"
       }
     },
     "ios": {

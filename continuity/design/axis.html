@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tunnel Axis</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #e8ece4;
+      --field: #f7f8f4;
+      --ink: #344640;
+      --muted: #5c6a64;
+      --line: #d5ddd6;
+      --tide: #376682;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+    main { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+    h1, h2 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: normal;
+    }
+    h1 { font-size: 40px; }
+    h2 { font-size: 24px; }
+    p { margin: 8px 0 0; }
+    .kicker {
+      margin: 0 0 8px;
+      color: var(--tide);
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .lede, .note { max-width: 62ch; color: var(--muted); }
+    section {
+      margin-top: 28px;
+      padding: 22px;
+      background: var(--field);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+    .hero {
+      display: flex;
+      justify-content: center;
+      padding: 36px;
+      background: var(--paper);
+      border-radius: 12px;
+    }
+    .hero svg { width: 220px; height: 220px; }
+    .row, .sizes, .chips, .lockups {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 22px;
+      align-items: end;
+      margin-top: 16px;
+    }
+    figure { margin: 0; }
+    figcaption { margin-top: 8px; color: var(--muted); font-size: 13px; }
+    .tile {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      background: var(--paper);
+    }
+    .tile svg, .swatch svg { display: block; width: 100%; height: 100%; }
+    .circle { border-radius: 50%; overflow: hidden; }
+    .squircle {
+      overflow: hidden;
+      clip-path: polygon(100.00% 50.00%, 99.94% 68.06%, 99.75% 73.81%, 99.44% 77.94%, 99.01% 81.26%, 98.44% 84.05%, 97.74% 86.46%, 96.91% 88.57%, 95.94% 90.43%, 94.81% 92.07%, 93.53% 93.53%, 92.07% 94.81%, 90.43% 95.94%, 88.57% 96.91%, 86.46% 97.74%, 84.05% 98.44%, 81.26% 99.01%, 77.94% 99.44%, 73.81% 99.75%, 68.06% 99.94%, 50.00% 100.00%, 31.94% 99.94%, 26.19% 99.75%, 22.06% 99.44%, 18.74% 99.01%, 15.95% 98.44%, 13.54% 97.74%, 11.43% 96.91%, 9.57% 95.94%, 7.93% 94.81%, 6.47% 93.53%, 5.19% 92.07%, 4.06% 90.43%, 3.09% 88.57%, 2.26% 86.46%, 1.56% 84.05%, 0.99% 81.26%, 0.56% 77.94%, 0.25% 73.81%, 0.06% 68.06%, 0.00% 50.00%, 0.06% 31.94%, 0.25% 26.19%, 0.56% 22.06%, 0.99% 18.74%, 1.56% 15.95%, 2.26% 13.54%, 3.09% 11.43%, 4.06% 9.57%, 5.19% 7.93%, 6.47% 6.47%, 7.93% 5.19%, 9.57% 4.06%, 11.43% 3.09%, 13.54% 2.26%, 15.95% 1.56%, 18.74% 0.99%, 22.06% 0.56%, 26.19% 0.25%, 31.94% 0.06%, 50.00% 0.00%, 68.06% 0.06%, 73.81% 0.25%, 77.94% 0.56%, 81.26% 0.99%, 84.05% 1.56%, 86.46% 2.26%, 88.57% 3.09%, 90.43% 4.06%, 92.07% 5.19%, 93.53% 6.47%, 94.81% 7.93%, 95.94% 9.57%, 96.91% 11.43%, 97.74% 13.54%, 98.44% 15.95%, 99.01% 18.74%, 99.44% 22.06%, 99.75% 26.19%, 99.94% 31.94%);
+    }
+    .zone {
+      position: absolute;
+      left: 19.44%;
+      top: 19.44%;
+      width: 61.11%;
+      height: 61.11%;
+      border: 1.5px dashed #c23d2e;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .sizes { align-items: end; }
+    .sizes svg { display: block; }
+    .swatch {
+      width: 88px;
+      height: 88px;
+      padding: 16px;
+      border-radius: 12px;
+    }
+    .on-paper { background: var(--paper); }
+    .on-white { background: #fff; }
+    .on-ink { background: var(--ink); }
+    .chip {
+      width: 148px;
+      padding: 12px;
+      background: var(--paper);
+      border-radius: 12px;
+    }
+    .chip i {
+      display: block;
+      height: 36px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+    }
+    .chip b { display: block; font-weight: 600; }
+    .chip span, dl, pre { color: var(--muted); font-size: 13px; }
+    dl { display: grid; grid-template-columns: 9em 1fr; gap: 6px 12px; margin: 16px 0 0; }
+    dt { color: var(--ink); }
+    dd { margin: 0; }
+    pre {
+      margin: 16px 0 0;
+      padding: 14px;
+      overflow: auto;
+      background: var(--paper);
+      border-radius: 12px;
+      white-space: pre-wrap;
+    }
+    .lockup {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--ink);
+      font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+    }
+    .lockup.small { font-size: 16px; }
+    .lockup.large { font-size: 28px; }
+    code { font-family: Consolas, monospace; }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true">
+    <defs>
+      <clipPath id="half-left" clipPathUnits="userSpaceOnUse"><rect width="54" height="108"/></clipPath>
+      <clipPath id="half-right" clipPathUnits="userSpaceOnUse"><rect x="54" width="54" height="108"/></clipPath>
+    </defs>
+    <symbol id="axis" viewBox="0 0 108 108">
+      <rect width="108" height="108" fill="#e4ebef"/>
+      <rect width="54" height="108" fill="#376682"/>
+      <g fill="none" stroke-width="6.5">
+        <g clip-path="url(#half-left)" stroke="#f2f4ed">
+          <ellipse cx="54" cy="54" rx="26" ry="11"/>
+          <ellipse cx="54" cy="54" rx="26" ry="11" transform="rotate(90 54 54)"/>
+        </g>
+        <g clip-path="url(#half-right)" stroke="#376682">
+          <ellipse cx="54" cy="54" rx="26" ry="11"/>
+          <ellipse cx="54" cy="54" rx="26" ry="11" transform="rotate(90 54 54)"/>
+        </g>
+      </g>
+      <path fill="#e4ebef" d="M54 46.5A7.5 7.5 0 0 0 54 61.5Z"/>
+      <path fill="#376682" d="M54 46.5A7.5 7.5 0 0 1 54 61.5Z"/>
+    </symbol>
+  </svg>
+  <main>
+    <p class="kicker">Logo specification</p>
+    <h1>Axis</h1>
+    <p class="lede">Accepted mark for October 26, 2026. Tide fills the left. Tide paper fills the right. Two orbits cross that wall, and the disc is reversed. Redraw other sizes from this page. Do not add a third orbit.</p>
+
+    <section>
+      <h2>The mark</h2>
+      <p class="note">Square source art. The wall runs to the top and bottom edges so a circle or squircle can crop the corners.</p>
+      <div class="hero"><svg role="img" aria-label="Axis"><use href="#axis"/></svg></div>
+    </section>
+
+    <section>
+      <h2>Masks</h2>
+      <p class="note">The dashed circle is the Android safe zone. It is a guide. It is not part of the art. The orbits and the disc stay inside that circle. The wall does not.</p>
+      <div class="row">
+        <figure>
+          <div class="tile"><svg role="img" aria-label="Square asset"><use href="#axis"/></svg><span class="zone"></span></div>
+          <figcaption>Square, with the safe zone</figcaption>
+        </figure>
+        <figure>
+          <div class="tile circle"><svg role="img" aria-label="Android circle"><use href="#axis"/></svg></div>
+          <figcaption>Android circle</figcaption>
+        </figure>
+        <figure>
+          <div class="tile squircle"><svg role="img" aria-label="iOS squircle"><use href="#axis"/></svg></div>
+          <figcaption>iOS squircle</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Sizes</h2>
+      <p class="note">Keep the same 108 grid at every size. The stroke is 6.5 units on that grid. At 16 px the orbits are thin. Do not thicken them.</p>
+      <div class="sizes">
+        <figure><svg width="16" height="16" aria-label="16 pixel mark"><use href="#axis"/></svg><figcaption>16</figcaption></figure>
+        <figure><svg width="24" height="24" aria-label="24 pixel mark"><use href="#axis"/></svg><figcaption>24</figcaption></figure>
+        <figure><svg width="32" height="32" aria-label="32 pixel mark"><use href="#axis"/></svg><figcaption>32</figcaption></figure>
+        <figure><svg width="48" height="48" aria-label="48 pixel mark"><use href="#axis"/></svg><figcaption>48</figcaption></figure>
+        <figure><svg width="64" height="64" aria-label="64 pixel mark"><use href="#axis"/></svg><figcaption>64</figcaption></figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Color</h2>
+      <div class="chips">
+        <div class="chip"><i style="background:#376682"></i><b>Tide</b><span>#376682</span></div>
+        <div class="chip"><i style="background:#e4ebef"></i><b>Tide paper</b><span>#e4ebef</span></div>
+        <div class="chip"><i style="background:#f2f4ed"></i><b>Mineral paper</b><span>#f2f4ed</span></div>
+        <div class="chip"><i style="background:#344640"></i><b>Ink</b><span>#344640</span></div>
+      </div>
+      <p class="note">Mineral paper is the orbit stroke on the Tide half. Ink is for the wordmark. It is not a color in the mark.</p>
+    </section>
+
+    <section>
+      <h2>The only form</h2>
+      <p class="note">The full square is the logo. It is opaque, so the ground behind it does not show. There is no one-color substitute and no orbit-only mark.</p>
+      <div class="row">
+        <figure>
+          <div class="swatch on-paper"><svg role="img" aria-label="Full mark on paper"><use href="#axis"/></svg></div>
+          <figcaption>Full mark</figcaption>
+        </figure>
+        <figure>
+          <div class="swatch on-white"><svg role="img" aria-label="Full mark on white"><use href="#axis"/></svg></div>
+          <figcaption>On white</figcaption>
+        </figure>
+        <figure>
+          <div class="swatch on-ink"><svg role="img" aria-label="Full mark on ink"><use href="#axis"/></svg></div>
+          <figcaption>On ink</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Wordmark</h2>
+      <p class="note">Set Tunnel in Instrument Serif beside the square. Leave a gap about one third of the mark height.</p>
+      <div class="lockups">
+        <div class="lockup small"><svg width="16" height="16" aria-hidden="true"><use href="#axis"/></svg> Tunnel</div>
+        <div class="lockup large"><svg width="32" height="32" aria-hidden="true"><use href="#axis"/></svg> Tunnel</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Construction</h2>
+      <dl>
+        <dt>Grid</dt><dd>108 by 108. Draw full bleed. Do not inset the wall.</dd>
+        <dt>Wall</dt><dd>Vertical split at x 54. Left is Tide. Right is Tide paper.</dd>
+        <dt>Orbits</dt><dd>Center 54, 54. One ellipse rx 26, ry 11. The second is that ellipse rotated 90° about the center.</dd>
+        <dt>Stroke</dt><dd>Width 6.5, no fill. Mineral paper on the left of x 54. Tide on the right. Clip at the wall.</dd>
+        <dt>Disc</dt><dd>Radius 7.5, centered, drawn over the crossing. Left half Tide paper. Right half Tide.</dd>
+        <dt>Safe circle</dt><dd>Diameter 66, centered. Radius 33. The stroke’s outer edge is 29.25 from the center.</dd>
+        <dt>Source</dt><dd><code>assets/tunnel.svg</code>. The adaptive foreground is the same square.</dd>
+      </dl>
+      <p class="note">Keep one wall. Keep two orbits. Leave the particle off. The three-ellipse motion inside the app is separate from this logo.</p>
+      <pre>M54 46.5 A7.5 7.5 0 0 0 54 61.5 Z
+M54 46.5 A7.5 7.5 0 0 1 54 61.5 Z</pre>
+      <pre>&lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" role="img" aria-label="Tunnel"&gt;
+  &lt;defs&gt;
+    &lt;clipPath id="half-left" clipPathUnits="userSpaceOnUse"&gt;&lt;rect width="54" height="108"/&gt;&lt;/clipPath&gt;
+    &lt;clipPath id="half-right" clipPathUnits="userSpaceOnUse"&gt;&lt;rect x="54" width="54" height="108"/&gt;&lt;/clipPath&gt;
+  &lt;/defs&gt;
+  &lt;rect width="108" height="108" fill="#e4ebef"/&gt;
+  &lt;rect width="54" height="108" fill="#376682"/&gt;
+  &lt;g fill="none" stroke-width="6.5"&gt;
+    &lt;g clip-path="url(#half-left)" stroke="#f2f4ed"&gt;
+      &lt;ellipse cx="54" cy="54" rx="26" ry="11"/&gt;
+      &lt;ellipse cx="54" cy="54" rx="26" ry="11" transform="rotate(90 54 54)"/&gt;
+    &lt;/g&gt;
+    &lt;g clip-path="url(#half-right)" stroke="#376682"&gt;
+      &lt;ellipse cx="54" cy="54" rx="26" ry="11"/&gt;
+      &lt;ellipse cx="54" cy="54" rx="26" ry="11" transform="rotate(90 54 54)"/&gt;
+    &lt;/g&gt;
+  &lt;/g&gt;
+  &lt;path fill="#e4ebef" d="M54 46.5A7.5 7.5 0 0 0 54 61.5Z"/&gt;
+  &lt;path fill="#376682" d="M54 46.5A7.5 7.5 0 0 1 54 61.5Z"/&gt;
+&lt;/svg&gt;</pre>
+    </section>
+  </main>
+</body>
+</html>
