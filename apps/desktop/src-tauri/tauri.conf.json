@@ -3,6 +3,7 @@
   "productName": "Tunnel",
   "version": "0.1.0",
   "identifier": "app.tunnel.desktop",
+  "plugins": { "deep-link": { "desktop": { "schemes": ["tunnel"] } } },
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1427",
@@ -22,7 +23,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' asset: data:; connect-src ipc: http://ipc.localhost https://*.cloudflareaccess.com https://*.workers.dev wss://*.workers.dev"
     }
   },
   "bundle": {

@@ -51,20 +51,25 @@ class TunnelLinkModule : Module() {
         val target = c.packageManager.getLaunchIntentForPackage(c.packageName)!!
         target.setClass(c, ShareActivity::class.java)
         target.action = Intent.ACTION_SEND
+        target.putExtra("tunnelServerId",config.getString("serverId"))
         val iconId = c.applicationInfo.icon
-        val shortcut = ShortcutInfo.Builder(c, "tunnel-desktop").setShortLabel("Tunnel · " + config.getString("desktopName").take(25)).setLongLabel("Tunnel to " + config.getString("desktopName")).setIcon(Icon.createWithResource(c, iconId)).setIntent(target).setCategories(setOf("app.tunnel.TEXT_SHARE")).setLongLived(true).build()
-        c.getSystemService(ShortcutManager::class.java).addDynamicShortcuts(listOf(shortcut))
+        val shortcut = ShortcutInfo.Builder(c, "tunnel-"+config.getString("serverId")).setShortLabel("Tunnel · " + config.getString("desktopName").take(25)).setLongLabel("Tunnel to " + config.getString("desktopName")).setIcon(Icon.createWithResource(c, iconId)).setIntent(target).setCategories(setOf("app.tunnel.TEXT_SHARE")).setLongLived(true).build()
+        val manager=c.getSystemService(ShortcutManager::class.java)
+        manager.removeDynamicShortcuts(listOf("tunnel-desktop"))
+        manager.addDynamicShortcuts(listOf(shortcut))
       }
     }
-    AsyncFunction("stop") {
+    AsyncFunction("stop") { serverId: String ->
       val c = appContext.reactContext ?: error("Missing Android context")
-      c.stopService(Intent(c, TunnelService::class.java)); LinkStore.clearConfig(c); LinkStore.clearInbox(c)
-      c.getSystemService(ShortcutManager::class.java).removeDynamicShortcuts(listOf("tunnel-desktop"))
+      LinkStore.clearConfig(c,serverId); c.startForegroundService(Intent(c,TunnelService::class.java))
+      c.getSystemService(ShortcutManager::class.java).removeDynamicShortcuts(listOf("tunnel-"+serverId))
     }
     Function("snapshot") {
       val c = appContext.reactContext ?: error("Missing Android context")
-      JSONObject().put("status", TunnelService.instance?.status ?: "offline").put("desktopName", LinkStore.config(c)?.optString("desktopName")).put("inbox", LinkStore.inbox(c)).put("outgoing", LinkStore.outgoing(c)).put("error", TunnelService.instance?.error).toString()
+      JSONObject().put("peers",TunnelService.instance?.snapshot() ?: org.json.JSONArray()).put("inbox",LinkStore.inbox(c)).put("outgoing",LinkStore.outgoing(c)).toString()
     }
+    AsyncFunction("setDestinations") { ids: List<String> -> val c=appContext.reactContext?:error("Missing context"); LinkStore.setDestinations(c,ids) }
+    Function("takeReviewDestination") { val c=appContext.reactContext?:error("Missing context"); LinkStore.takeReviewDestination(c) }
     Function("shareSettings") { val c = appContext.reactContext ?: error("Missing Android context"); LinkStore.settings(c).toString() }
     AsyncFunction("setShareSettings") { raw: String -> val c = appContext.reactContext ?: error("Missing Android context"); LinkStore.setSettings(c, raw) }
     AsyncFunction("releaseFiles") { uris: List<String> ->

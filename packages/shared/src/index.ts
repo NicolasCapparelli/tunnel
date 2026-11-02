@@ -24,6 +24,7 @@ export interface Quanta {
   attachments?: Attachment[];
 }
 export interface Transfer extends Quanta {
+  serverId?: string;
   direction: "sent" | "received";
   status: "pending" | "delivered" | "failed";
   peer: string;

@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tunnel-singularity",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "durable_objects": {
+    "bindings": [{ "name": "SPACES", "class_name": "SingularitySpace" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SingularitySpace"] }],
+  "vars": {
+    "ACCESS_TEAM_DOMAIN": "dawn-haze-fad8.cloudflareaccess.com",
+    "ACCESS_AUDIENCE": "a950cc7b7453b60e76b83803fdb48a04ef7ec236cefe0904f26094f1df815c9f"
+  }
+}

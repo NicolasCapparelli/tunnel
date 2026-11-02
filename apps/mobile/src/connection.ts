@@ -11,18 +11,23 @@ import {
 
 type Options = ConstructorParameters<typeof TunnelClient>[0];
 type NativeSnapshot = {
-  status: ConnectionStatus;
-  desktopName?: string;
-  inbox: Quanta[];
-  outgoing?: (Quanta & { status: Transfer["status"] })[];
-  error?: string;
+  peers: {
+    serverId: string;
+    status: ConnectionStatus;
+    desktopName?: string;
+    error?: string;
+  }[];
+  inbox: (Quanta & { serverId?: string; peer?: string })[];
+  outgoing?: Transfer[];
 };
 type NativeModule = {
   saveFile(raw: string): Promise<string>;
   start(raw: string): Promise<void>;
-  stop(): Promise<void>;
+  stop(serverId: string): Promise<void>;
+  setDestinations(ids: string[]): Promise<void>;
   send(raw: string): Promise<void>;
   snapshot(): string;
+  takeReviewDestination(): string | null;
   shareSettings(): string;
   setShareSettings(raw: string): Promise<void>;
   releaseFiles(uris: string[]): Promise<void>;
@@ -35,6 +40,14 @@ const native =
     ? requireOptionalNativeModule<NativeModule>("TunnelLink")
     : null;
 let permissionRequested = false;
+let permissionWork: Promise<unknown> | null = null;
+let refreshQueue = Promise.resolve();
+export async function setNativeDestinations(ids: string[]) {
+  await native?.setDestinations(ids);
+}
+export function takeReviewDestination() {
+  return native?.takeReviewDestination() ?? null;
+}
 export interface Connection {
   readonly status: ConnectionStatus;
   start(): void;
@@ -64,7 +77,10 @@ export async function setShareSettings(settings: ShareSettings) {
   await native?.setShareSettings(JSON.stringify(settings));
 }
 export function createConnection(
-  options: Options & { onOutgoing?: (q: Transfer) => Promise<void> },
+  options: Options & {
+    onOutgoing?: (q: Transfer) => Promise<void>;
+    onStarted?: () => Promise<void>;
+  },
 ): Connection {
   if (!native) {
     const client = new TunnelClient(options);
@@ -87,29 +103,44 @@ export function createConnection(
     };
   }
   let status: ConnectionStatus = "offline";
-  let queue = Promise.resolve();
   let disposed = false;
   const refresh = () => {
-    queue = queue
+    refreshQueue = refreshQueue
       .catch(() => {})
       .then(async () => {
         if (disposed) return;
         const state = JSON.parse(native.snapshot()) as NativeSnapshot;
-        status = state.status;
+        const peer = state.peers.find(
+          (p) => p.serverId === options.credentials.serverId,
+        );
+        status = peer?.status ?? "offline";
         options.onStatus(status);
-        if (state.desktopName) options.onPeerName?.(state.desktopName);
-        if (state.error) options.onError?.(state.error);
+        if (peer?.desktopName) options.onPeerName?.(peer.desktopName);
+        if (peer?.error) options.onError?.(peer.error);
         if (AppState.currentState !== "active") return;
         for (const q of [...(state.outgoing ?? [])].reverse()) {
-          if (!options.onOutgoing) continue;
+          if (
+            !options.onOutgoing ||
+            q.serverId !== options.credentials.serverId
+          )
+            continue;
           await options.onOutgoing({
             ...q,
             direction: "sent",
-            peer: state.desktopName ?? options.credentials.desktopName,
+            peer:
+              q.peer ?? peer?.desktopName ?? options.credentials.desktopName,
           });
           if (q.status !== "pending") await native.consumeOutgoing([q.id]);
         }
         for (const q of [...state.inbox].reverse()) {
+          if (q.serverId && q.serverId !== options.credentials.serverId)
+            continue;
+          // Old single-device pending inbox has no source ID; only its migrated peer may consume it.
+          if (
+            !q.serverId &&
+            state.peers[0]?.serverId !== options.credentials.serverId
+          )
+            continue;
           await options.onReceive(q);
           await native.consume([q.id]);
         }
@@ -129,23 +160,29 @@ export function createConnection(
       void (async () => {
         if (Number(Platform.Version) >= 33 && !permissionRequested) {
           permissionRequested = true;
-          await PermissionsAndroid.request(
+          permissionWork = PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
           );
         }
+        await permissionWork;
+        if (disposed) return;
         await native.start(JSON.stringify(options.credentials));
       })()
+        .then(() => options.onStarted?.())
         .then(refresh)
         .catch((e) => options.onError?.(String(e.message ?? e)));
     },
     stop: () => {
-      void native.stop().then(refresh);
+      void native.stop(options.credentials.serverId).then(refresh);
     },
     dispose: () => {
       disposed = true;
       sub.remove();
     },
     resume: refresh,
-    send: (q) => native.send(JSON.stringify(q)),
+    send: (q) =>
+      native.send(
+        JSON.stringify({ ...q, serverId: options.credentials.serverId }),
+      ),
   };
 }

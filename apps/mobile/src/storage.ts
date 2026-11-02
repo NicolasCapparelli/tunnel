@@ -11,6 +11,7 @@ import {
   validateAttachments,
   type Attachment,
 } from "@tunnel/shared";
+import { restoreDesktops, destinationIds } from "@tunnel/shared/devices";
 import { restoreTheme } from "@tunnel/shared/theme";
 let queue = Promise.resolve();
 export function saveLocal(key: string, value: unknown) {
@@ -20,10 +21,16 @@ export function saveLocal(key: string, value: unknown) {
   queue = write;
   return write;
 }
-export function saveCredentials(c: Credentials | null) {
-  return c
-    ? SecureStore.setItemAsync("tunnel-link", JSON.stringify(c))
-    : SecureStore.deleteItemAsync("tunnel-link");
+let credentialQueue = Promise.resolve();
+export function saveDesktops(links: Credentials[]) {
+  const work = credentialQueue
+    .catch(() => {})
+    .then(async () => {
+      await SecureStore.setItemAsync("tunnel-links", JSON.stringify(links));
+      await SecureStore.deleteItemAsync("tunnel-link");
+    });
+  credentialQueue = work;
+  return work;
 }
 export async function load() {
   const [items, link] = await Promise.all([
@@ -37,8 +44,12 @@ export async function load() {
       "tunnel-attachments",
       "tunnel-send-layout",
       "tunnel-under-control",
+      "tunnel-destinations",
     ]),
-    SecureStore.getItemAsync("tunnel-link"),
+    Promise.all([
+      SecureStore.getItemAsync("tunnel-links"),
+      SecureStore.getItemAsync("tunnel-link"),
+    ]),
   ]);
   const parse = (key: string) => {
     try {
@@ -47,19 +58,13 @@ export async function load() {
       return null;
     }
   };
-  let credentials: Credentials | null = null;
-  if (link)
-    try {
-      const raw = JSON.parse(link);
-      parsePairing(link, Date.now(), true);
-      if (
-        typeof raw.deviceId === "string" &&
-        typeof raw.deviceName === "string"
-      )
-        credentials = raw;
-    } catch {
-      await saveCredentials(null);
-    }
+  let rawLinks: unknown = null;
+  try {
+    rawLinks = JSON.parse(link[0] ?? link[1] ?? "null");
+  } catch {}
+  const links = restoreDesktops(rawLinks);
+  if (link[1] && !link[0]) await saveDesktops(links);
+  const credentials = links[0] ?? null;
   const storedHistory = parse("tunnel-history");
   const rawHistory = Array.isArray(storedHistory)
     ? storedHistory
@@ -93,6 +98,11 @@ export async function load() {
   return {
     theme: restoreTheme(parse("tunnel-theme")),
     credentials,
+    links,
+    destinations: destinationIds(
+      links,
+      parse("tunnel-destinations") ?? (links[0] ? [links[0].serverId] : []),
+    ),
     history,
     seen,
     draft:

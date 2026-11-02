@@ -23,6 +23,7 @@ class ShareActivity : Activity() {
     val type = if (uris.isEmpty()) "text" else if (uris.all { contentResolver.getType(it)?.startsWith("image/") == true }) "image" else "file"
     val automatic = LinkStore.settings(this).optBoolean(type, type == "text")
     if (!automatic || LinkStore.config(this) == null) {
+      LinkStore.reviewDestination(this,source.getStringExtra("tunnelServerId"))
       val target = packageManager.getLaunchIntentForPackage(packageName)!!
       target.action = if (source.action == Intent.ACTION_PROCESS_TEXT) Intent.ACTION_SEND else source.action
       target.type = source.type ?: "text/plain"; target.putExtras(source)
@@ -36,7 +37,7 @@ class ShareActivity : Activity() {
         var total=0L
         for (uri in uris){val file=LinkFiles.import(this,uri);total+=file.getLong("size");require(total<=LinkFiles.MAX_BYTES) {"Keep attachments under 250 MB per quanta"};files.put(file)}
         val q = JSONObject().put("id", UUID.randomUUID().toString()).put("text", text).put("createdAt", System.currentTimeMillis()).put("attachments", files)
-        LinkStore.enqueue(this, q)
+        LinkStore.enqueue(this, q, source.getStringExtra("tunnelServerId"))
         runOnUiThread {
           startForegroundService(Intent(this, TunnelService::class.java))
           Toast.makeText(this, "Tunneling in the background", Toast.LENGTH_SHORT).show(); finish()

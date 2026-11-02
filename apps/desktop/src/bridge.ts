@@ -45,14 +45,19 @@ export const bridge = {
   previewDraft: (uri: string) => invoke<string>("preview_draft", { uri }),
   copyAttachment: (id: string, index: number) =>
     invoke<void>("copy_attachment", { id, index }),
-  previewAttachment: (id: string, index: number) =>
-    invoke<string>("preview_attachment", { id, index }),
+  previewAttachment: (id: string, index: number, full = false) =>
+    invoke<string>("preview_attachment", { id, index, full }),
   saveAttachment: (id: string, index: number) =>
     native
       ? invoke<void>("save_attachment", { id, index })
       : Promise.reject(new Error("Use the desktop app to save files.")),
   rename: (name: string) =>
     native ? invoke<void>("rename_device", { name }) : Promise.resolve(),
+  singularitySecret: () => invoke<string | null>("get_singularity_secret"),
+  setSingularitySecret: (value: string) => invoke<void>("set_singularity_secret", { value }),
+  clearSingularitySecret: () => invoke<void>("clear_singularity_secret"),
+  loadSingularityDb: (accountKey: string) => invoke<number[] | null>("load_singularity_db", { accountKey }),
+  saveSingularityDb: (accountKey: string, bytes: Uint8Array) => invoke<void>("save_singularity_db", { accountKey, bytes: Array.from(bytes) }),
   unpair: () => (native ? invoke<void>("unpair") : Promise.resolve()),
   clearHistory: () =>
     native ? invoke<void>("clear_history") : Promise.resolve(),

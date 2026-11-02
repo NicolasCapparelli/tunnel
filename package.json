@@ -9,18 +9,19 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @tunnel/desktop",
-    "desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop.ps1 dev",
+    "desktop": "node tools/desktop.mjs dev",
     "mobile": "npm run start -w @tunnel/mobile",
     "android": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/android.ps1",
     "build": "npm run build:desktop",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "test:ui": "playwright test",
-    "build:desktop": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop.ps1 build",
+    "build:desktop": "node tools/desktop.mjs build",
     "build:web": "npm run build -w @tunnel/desktop",
     "build:android": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/android.ps1 build",
+    "build:android:apk": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/android.ps1 apk",
     "build:android:bundle": "npm run bundle:android -w @tunnel/mobile",
-    "test:rust": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop.ps1 test"
+    "test:rust": "node tools/desktop.mjs test"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.0",

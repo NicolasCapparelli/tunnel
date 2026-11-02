@@ -18,6 +18,9 @@ use tokio_tungstenite::tungstenite::{protocol::WebSocketConfig, Message};
 const PORT: u16 = 53177;
 static THUMBNAILS: std::sync::LazyLock<Arc<Semaphore>> =
     std::sync::LazyLock::new(|| Arc::new(Semaphore::new(2)));
+// The photo viewer has its own queue so it never waits behind list thumbnails.
+static VIEWER: std::sync::LazyLock<Arc<Semaphore>> =
+    std::sync::LazyLock::new(|| Arc::new(Semaphore::new(2)));
 pub fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -715,6 +718,7 @@ pub async fn save_attachment(
 pub async fn preview_attachment(
     id: String,
     index: usize,
+    full: Option<bool>,
     state: tauri::State<'_, TunnelState>,
 ) -> Result<String, String> {
     let source = {
@@ -730,19 +734,27 @@ pub async fn preview_attachment(
         if !a.mime_type.starts_with("image/") {
             return Err("This file is not an image".into());
         }
-        s.path
-            .parent()
-            .unwrap()
-            .join(format!("attachments/{}/{index}", q.id))
+        (
+            s.path
+                .parent()
+                .unwrap()
+                .join(format!("attachments/{}/{index}", q.id)),
+            a.mime_type.clone(),
+        )
     };
-    let permit = THUMBNAILS
-        .clone()
+    let (source, mime) = source;
+    let full = full.unwrap_or(false);
+    let permit = (if full { VIEWER.clone() } else { THUMBNAILS.clone() })
         .acquire_owned()
         .await
         .map_err(|e| e.to_string())?;
     tokio::task::spawn_blocking(move || {
         let _permit = permit;
-        thumbnail(&source)
+        if full {
+            viewer_image(&source, &mime)
+        } else {
+            thumbnail(&source)
+        }
     })
     .await
     .map_err(|e| e.to_string())?
@@ -775,13 +787,45 @@ fn read_image(path: &std::path::Path) -> Result<image::DynamicImage, String> {
     reader.decode().map_err(|e| e.to_string())
 }
 fn thumbnail(path: &std::path::Path) -> Result<String, String> {
+    encode_preview(&read_image(path)?.thumbnail(640, 480), 82)
+}
+// Formats the WebView decodes itself; these go to the viewer untouched.
+const VIEWER_NATIVE: [&str; 6] = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "image/webp",
+    "image/gif",
+    "image/bmp",
+];
+const VIEWER_NATIVE_MAX: u64 = 12 * 1024 * 1024;
+// Viewer image: the original file when the WebView can show it, otherwise a 2400px re-encode.
+fn viewer_image(path: &std::path::Path, mime: &str) -> Result<String, String> {
     use base64::{engine::general_purpose::STANDARD, Engine};
-    let img = read_image(path)?.thumbnail(640, 480);
+    let size = std::fs::metadata(path).map_err(|e| e.to_string())?.len();
+    if VIEWER_NATIVE.contains(&mime) && size <= VIEWER_NATIVE_MAX {
+        let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+        return Ok(format!("data:{mime};base64,{}", STANDARD.encode(bytes)));
+    }
+    encode_preview(&read_image(path)?.thumbnail(2400, 2400), 90)
+}
+// JPEG for opaque images (fast, small); PNG only when a pixel is actually transparent.
+fn encode_preview(img: &image::DynamicImage, quality: u8) -> Result<String, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let transparent = img.color().has_alpha() && img.to_rgba8().pixels().any(|p| p[3] < 255);
     let mut bytes = std::io::Cursor::new(Vec::new());
-    img.write_to(&mut bytes, image::ImageFormat::Png)
-        .map_err(|e| e.to_string())?;
+    let mime = if transparent {
+        img.write_to(&mut bytes, image::ImageFormat::Png)
+            .map_err(|e| e.to_string())?;
+        "png"
+    } else {
+        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut bytes, quality)
+            .encode_image(&img.to_rgb8())
+            .map_err(|e| e.to_string())?;
+        "jpeg"
+    };
     Ok(format!(
-        "data:image/png;base64,{}",
+        "data:image/{mime};base64,{}",
         STANDARD.encode(bytes.into_inner())
     ))
 }

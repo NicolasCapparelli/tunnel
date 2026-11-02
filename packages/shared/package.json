@@ -6,10 +6,20 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme": "./src/theme.ts",
-    "./composer": "./src/composer.ts"
+    "./composer": "./src/composer.ts",
+    "./devices": "./src/devices.ts",
+    "./singularity": "./src/singularity.ts",
+    "./singularity-auth": "./src/singularity-auth.ts"
   },
   "dependencies": {
     "@aurora/core": "file:../../vendor/aurora/core",
-    "@noble/ciphers": "^2.0.0"
+    "@noble/ciphers": "^2.0.0",
+    "@noble/hashes": "^1.8.0",
+    "@entanglement/core": "file:../../vendor/entanglement/entanglement-core-0.1.0.tgz",
+    "@entanglement/cloudflare": "file:../../vendor/entanglement/entanglement-cloudflare-0.1.0.tgz",
+    "sql.js": "^1.15.2"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.11"
   }
 }

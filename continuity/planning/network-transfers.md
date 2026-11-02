@@ -1,6 +1,6 @@
 # Network and multi-device proposals
 
-Discussion requested by the user 2026-10-08 after the media/UI refinements. This is a proposal, not implemented functionality or a selected provider.
+Discussion requested by the user 2026-10-08 after the media/UI refinements. Remote sections remain proposals without a selected provider. The user authorized one-phone/multiple-desktop local sharing on 2026-10-10; explicit destination chips, independent pairings and per-recipient receipts are now implemented. That phase uses direct phone-to-desktop sessions, without a hub or phone-to-phone mesh.
 
 ## Sending interaction
 
@@ -29,4 +29,4 @@ Direct WebRTC is a possible later optimization; signaling plus STUN/TURN adds an
 - Is a Windows desktop hub sufficient for the first multi-device version, or is direct Android-to-Android required?
 - Is self-hosting a near-term requirement? This affects deployment and account choices, not the composer.
 
-No runtime change from this proposal. Multi-device and remote acceptance, auth provider and deployment remain unselected.
+The 2026-10-10 local multi-desktop selection is tracked in the roadmap and implemented as direct sessions. Remote acceptance, auth provider, deployment and phone-to-phone remain unselected.
