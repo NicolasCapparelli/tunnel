@@ -31,7 +31,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Tunnel to scan your desktop\u00e2\u20ac\u2122s pairing QR.",
+          "cameraPermission": "Allow Tunnel to take photos, recognize text, and scan pairing codes.",
           "recordAudioAndroid": false
         }
       ],

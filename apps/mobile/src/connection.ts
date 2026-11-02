@@ -1,6 +1,7 @@
 import { wireQuanta } from "./files";
 import { Platform, AppState, PermissionsAndroid } from "react-native";
 import { requireOptionalNativeModule } from "expo";
+import { fullCrop, type Crop } from "./crop";
 import {
   TunnelClient,
   type Quanta,
@@ -21,6 +22,7 @@ type NativeSnapshot = {
   outgoing?: Transfer[];
 };
 type NativeModule = {
+  recognizeText(uri: string, crop: string): Promise<string>;
   saveFile(raw: string): Promise<string>;
   start(raw: string): Promise<void>;
   stop(serverId: string): Promise<void>;
@@ -42,6 +44,13 @@ const native =
 let permissionRequested = false;
 let permissionWork: Promise<unknown> | null = null;
 let refreshQueue = Promise.resolve();
+export async function recognizePhotoText(
+  uri: string,
+  crop: Crop = fullCrop,
+): Promise<string> {
+  if (!native) throw new Error("OCR requires the native Android app.");
+  return native.recognizeText(uri, JSON.stringify(crop));
+}
 export async function setNativeDestinations(ids: string[]) {
   await native?.setDestinations(ids);
 }

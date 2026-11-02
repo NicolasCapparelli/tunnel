@@ -10,6 +10,10 @@ import {
   type Quanta,
 } from "@tunnel/shared";
 const root = FS.documentDirectory + "quanta/";
+export async function discardImportedFile(file: Attachment) {
+  if (file.uri?.startsWith(root))
+    await FS.deleteAsync(file.uri, { idempotent: true });
+}
 export async function importFile(
   uri: string,
   name: string,

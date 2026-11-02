@@ -64,6 +64,8 @@ import {
   Check,
   CheckCheck,
   Clipboard as ClipboardIcon,
+  Camera,
+  ScanText,
   Copy,
   History,
   Link2,
@@ -84,6 +86,9 @@ import {
   X,
 } from "lucide-react-native";
 import SendRail from "./SendRail";
+import CaptureCamera, { type CaptureMode } from "./CaptureCamera";
+import { appendRecognizedText } from "./camera-draft";
+import type { Crop } from "./crop";
 import { compactQuanta, pairRows } from "./layout";
 import {
   DotField,
@@ -106,11 +111,13 @@ import {
   setShareSettings,
   setNativeDestinations,
   takeReviewDestination,
+  recognizePhotoText,
   type ShareSettings,
 } from "./connection";
 import * as DocumentPicker from "expo-document-picker";
 import {
   importFile,
+  discardImportedFile,
   storeQuanta,
   wireQuanta,
   shareFile,
@@ -192,6 +199,10 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
   );
   const [shareSettings, updateShareSettings] = useState(getShareSettings);
   const [draft, setDraft] = useState(boot.draft);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const [captureMode, setCaptureMode] = useState<CaptureMode | null>(null);
+  const openingCamera = useRef(false);
   const [history, setHistory] = useState(boot.history);
   const [links, setLinks] = useState<Credentials[]>(boot.links);
   const linksRef = useRef(links);
@@ -599,6 +610,55 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
       setToast((e as Error).message);
     }
   };
+  const openCamera = async (mode: CaptureMode) => {
+    if (busy || captureMode || openingCamera.current) return;
+    openingCamera.current = true;
+    try {
+      if (mode === "ocr" && Platform.OS !== "android") {
+        setToast("OCR requires the native Android app.");
+        return;
+      }
+      const access = permission?.granted
+        ? permission
+        : await requestPermission();
+      if (!access.granted) {
+        Alert.alert(
+          "Camera access needed",
+          "Allow camera access in your device settings to take photos or scan text.",
+        );
+        return;
+      }
+      Keyboard.dismiss();
+      setCaptureMode(mode);
+    } catch {
+      setToast("Could not open the camera. Check camera access in Settings.");
+    } finally {
+      openingCamera.current = false;
+    }
+  };
+  const acceptCapture = async (uri: string, crop?: Crop) => {
+    if (captureMode === "ocr") {
+      const recognized = await recognizePhotoText(uri, crop);
+      const next = appendRecognizedText(draftRef.current, recognized);
+      setDraft(next);
+      setToast("Recognized text added.");
+    } else {
+      const file = await importFile(
+        uri,
+        `photo-${Crypto.randomUUID()}.jpg`,
+        "image/jpeg",
+      );
+      try {
+        const next = [...attachmentsRef.current, file];
+        validateAttachments(next);
+        setAttachments(next);
+      } catch (error) {
+        await discardImportedFile(file).catch(() => {});
+        throw error;
+      }
+      setToast("Photo added.");
+    }
+  };
   const changeShareSetting = async (
     key: keyof ShareSettings,
     value: boolean,
@@ -855,6 +915,25 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
       >
         {label}
       </Text>
+    </Pressable>
+  );
+  const composerButton = (
+    Icon: typeof Paperclip,
+    label: string,
+    action: () => void,
+  ) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: busy }}
+      disabled={busy}
+      onPress={action}
+      style={({ pressed }) => [
+        s.composerAction,
+        { backgroundColor: c.tint, opacity: busy ? 0.45 : pressed ? 0.7 : 1 },
+      ]}
+    >
+      <Icon size={24} color={c.tintInk} />
     </Pressable>
   );
   const field = [
@@ -1226,12 +1305,18 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
                   )}
                 </Animated.View>
                 <View style={s.row}>
-                  <View style={{ flex: 1 }}>
-                    {textButton("Attach", () => void attach(), busy)}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    {textButton("Paste", () => void paste(), busy)}
-                  </View>
+                  {composerButton(Paperclip, "Attach", () => void attach())}
+                  {composerButton(
+                    ScanText,
+                    "OCR",
+                    () => void openCamera("ocr"),
+                  )}
+                  {composerButton(
+                    Camera,
+                    "Camera",
+                    () => void openCamera("photo"),
+                  )}
+                  {composerButton(ClipboardIcon, "Paste", () => void paste())}
                 </View>
               </View>
               {sendLayout === "right" && rail}
@@ -1970,6 +2055,14 @@ export default function TunnelApp({ boot }: { boot: BootState }) {
           );
         })}
       </View>
+      {captureMode && (
+        <CaptureCamera
+          mode={captureMode}
+          onCapture={acceptCapture}
+          onClose={() => setCaptureMode(null)}
+          onMessage={(message) => Alert.alert("Camera", message)}
+        />
+      )}
       <Modal visible={scan} onRequestClose={() => setScan(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: c.surface }}>
           <View style={s.heading}>
@@ -2112,7 +2205,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
+  composerAction: {
+    flex: 1,
+    minWidth: 48,
+    minHeight: 60,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   connection: {
     borderWidth: 1,
     borderRadius: 20,

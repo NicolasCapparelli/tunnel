@@ -17,6 +17,50 @@ class TunnelLinkModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("TunnelLink")
     Events("onState")
+    AsyncFunction("recognizeText") { uri: String, rawCrop: String, promise: Promise ->
+      var recognizer: com.google.mlkit.vision.text.TextRecognizer? = null
+      var bitmap: android.graphics.Bitmap? = null
+      try {
+        val context = appContext.reactContext ?: error("Missing Android context")
+        val parsed = android.net.Uri.parse(uri)
+        require(parsed.scheme == "file") { "OCR requires a captured photo" }
+        val photo = java.io.File(parsed.path ?: error("Missing photo path")).canonicalFile
+        require(photo.toPath().startsWith(context.cacheDir.canonicalFile.toPath()) && photo.isFile) {
+          "OCR requires a photo in the app cache"
+        }
+        val crop = JSONObject(rawCrop)
+        val x = crop.getDouble("x"); val y = crop.getDouble("y")
+        val width = crop.getDouble("width"); val height = crop.getDouble("height")
+        require(listOf(x, y, width, height).all { it.isFinite() } && x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= 1.000001 && y + height <= 1.000001) { "Invalid text crop" }
+        // ImageDecoder applies EXIF orientation. Crop fractions match the upright preview.
+        val decoded = android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(photo)) { decoder, info, _ ->
+          decoder.allocator = android.graphics.ImageDecoder.ALLOCATOR_SOFTWARE
+          val scale = minOf(1.0, 4096.0 / maxOf(info.size.width, info.size.height))
+          val targetWidth = maxOf(1, (info.size.width * scale).toInt())
+          val targetHeight = maxOf(1, (info.size.height * scale).toInt())
+          decoder.setTargetSize(targetWidth, targetHeight)
+          val left = kotlin.math.floor(x * targetWidth).toInt().coerceIn(0, targetWidth - 1)
+          val top = kotlin.math.floor(y * targetHeight).toInt().coerceIn(0, targetHeight - 1)
+          val right = kotlin.math.ceil((x + width) * targetWidth).toInt().coerceIn(left + 1, targetWidth)
+          val bottom = kotlin.math.ceil((y + height) * targetHeight).toInt().coerceIn(top + 1, targetHeight)
+          decoder.crop = android.graphics.Rect(left, top, right, bottom)
+        }
+        bitmap = decoded
+        val image = com.google.mlkit.vision.common.InputImage.fromBitmap(decoded, 0)
+        val client = com.google.mlkit.vision.text.TextRecognition.getClient(
+          com.google.mlkit.vision.text.latin.TextRecognizerOptions.DEFAULT_OPTIONS
+        )
+        recognizer = client
+        client.process(image)
+          .addOnSuccessListener { result -> promise.resolve(result.text) }
+          .addOnFailureListener { error -> promise.reject("OCR_FAILED", "Could not recognize text. Try a clearer photo.", error) }
+          .addOnCompleteListener { client.close(); decoded.recycle() }
+      } catch (error: Exception) {
+        recognizer?.close()
+        bitmap?.recycle()
+        promise.reject("OCR_FAILED", error.message, error)
+      }
+    }
     OnCreate { TunnelService.listener = { sendEvent("onState", emptyMap<String, String>()) } }
     OnDestroy { TunnelService.listener = null }
     OnActivityResult { _, (requestCode,resultCode,intent) ->

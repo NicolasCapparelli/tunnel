@@ -2,7 +2,7 @@
 
 Tunnel replaces sending yourself Discord messages with a direct passage for text, images and files between a Windows desktop and an Android phone. It is a personal development V1: local network, one paired phone, bidirectional quanta, receipt history and Aurora appearance.
 
-Account authentication, differing networks, macOS and iOS are future scope. See [current state](status.md) for implementation and verification boundaries.
+Singularity now adds account sign-in and Cloudflare-backed shared data across Windows and Android. macOS and iOS remain future scope. See [current state](status.md) for implementation and verification boundaries.
 
 | Task | Start here |
 | --- | --- |
