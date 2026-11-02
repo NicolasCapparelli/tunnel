@@ -9,6 +9,7 @@ import {
   DMSans_400Regular,
   DMSans_500Medium,
   DMSans_600SemiBold,
+  DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
 import {
   InstrumentSerif_400Regular,
@@ -25,6 +26,7 @@ export default function App() {
     DMSans_400Regular,
     DMSans_500Medium,
     DMSans_600SemiBold,
+    DMSans_700Bold,
     InstrumentSerif_400Regular,
     InstrumentSerif_400Regular_Italic,
   });

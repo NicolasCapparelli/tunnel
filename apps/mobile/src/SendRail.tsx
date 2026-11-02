@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import {
+  Easing,
   Animated,
   PanResponder,
   Text,
@@ -13,12 +14,14 @@ export default function SendRail({
   ready,
   busy,
   onSend,
+  onUse,
   c,
   horizontal = false,
 }: {
   ready: boolean;
   busy: boolean;
   onSend: () => void;
+  onUse?: () => void;
   horizontal?: boolean;
   c: {
     primary: string;
@@ -40,13 +43,22 @@ export default function SendRail({
       reduced.current = v;
     });
   }, []);
-  const current = useRef({ ready, busy, onSend, length, horizontal, armed });
-  current.current = { ready, busy, onSend, length, horizontal, armed };
+  const current = useRef({
+    ready,
+    busy,
+    onSend,
+    onUse,
+    length,
+    horizontal,
+    armed,
+  });
+  current.current = { ready, busy, onSend, onUse, length, horizontal, armed };
   const reset = () => {
     setArmed(false);
     Animated.timing(progress, {
       toValue: 0,
-      duration: 140,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
   };
@@ -56,7 +68,8 @@ export default function SendRail({
     launching.current = true;
     Animated.timing(progress, {
       toValue: 1,
-      duration: reduced.current ? 0 : 180,
+      duration: reduced.current ? 0 : 600,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (!finished) {
@@ -67,13 +80,13 @@ export default function SendRail({
       current.current.onSend();
       Animated.parallel([
         Animated.timing(burst, {
-          toValue: 1.8,
-          duration: reduced.current ? 0 : 140,
+          toValue: 1.5,
+          duration: reduced.current ? 0 : 320,
           useNativeDriver: true,
         }),
         Animated.timing(fade, {
           toValue: 0,
-          duration: reduced.current ? 0 : 140,
+          duration: reduced.current ? 0 : 320,
           useNativeDriver: true,
         }),
       ]).start(() => {
@@ -82,7 +95,7 @@ export default function SendRail({
         setArmed(false);
         Animated.timing(fade, {
           toValue: 1,
-          duration: reduced.current ? 0 : 160,
+          duration: reduced.current ? 0 : 280,
           useNativeDriver: true,
         }).start(() => {
           launching.current = false;
@@ -105,23 +118,24 @@ export default function SendRail({
         progress.setValue(
           Math.max(
             0,
-            Math.min(1, distance / Math.max(1, current.current.length - 84)),
+            Math.min(1, distance / Math.max(1, travel(current.current.length, current.current.horizontal))),
           ),
         );
         const next = shouldLaunchQuanta(
           distance,
-          current.current.length - 84,
+          travel(current.current.length, current.current.horizontal),
           velocity,
         );
         if (next && !current.current.armed)
           void Haptics.selectionAsync().catch(() => {});
         setArmed(next);
       },
+      onPanResponderGrant: () => current.current.onUse?.(),
       onPanResponderRelease: (_, g) => {
         if (
           shouldLaunchQuanta(
             current.current.horizontal ? g.dx : -g.dy,
-            current.current.length - 84,
+            travel(current.current.length, current.current.horizontal),
             current.current.horizontal ? -g.vx : g.vy,
           )
         )
@@ -153,71 +167,92 @@ export default function SendRail({
         height: horizontal ? 60 : undefined,
         borderWidth: 1,
         borderColor: c.line,
-        borderRadius: 22,
+        borderRadius: horizontal ? 30 : 22,
         backgroundColor: c.paper,
-        overflow: "hidden",
       }}
     >
-      <View
-        style={{
-          position: "absolute",
-          ...(horizontal
-            ? { left: 62, right: 68, top: 28, flexDirection: "row" as const }
-            : { top: 62, bottom: 76, left: 25 }),
-          justifyContent: "space-between",
-        }}
-      >
-        {Array.from({ length: 12 }, (_, i) => (
-          <View
-            key={i}
-            style={{
-              width: 4,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: c.primary,
-              opacity: 0.3,
-            }}
-          />
-        ))}
-      </View>
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          ...(horizontal
-            ? { left: 0, right: 0, top: 18 }
-            : {
-                top: "50%",
-                left: -48,
-                width: 150,
-                transform: [{ rotate: "-90deg" }],
-              }),
-        }}
-      >
-        <Text
+      {horizontal ? (
+        <Animated.Text
+          pointerEvents="none"
           style={{
-            fontSize: 8,
-            fontFamily: "DMSans_600SemiBold",
-            letterSpacing: 2,
-            color: c.muted,
+            position: "absolute",
+            left: 60,
+            right: 16,
+            top: 0,
+            bottom: 0,
             textAlign: "center",
-            backgroundColor: c.paper,
-            padding: 7,
+            textAlignVertical: "center",
+            lineHeight: 58,
+            fontSize: 11,
+            fontFamily: "DMSans_600SemiBold",
+            letterSpacing: 2.4,
+            color: ready ? c.primary : c.muted,
+            opacity: progress.interpolate({
+              inputRange: [0, 0.5],
+              outputRange: [1, 0],
+              extrapolate: "clamp",
+            }),
           }}
         >
           {busy ? "TUNNELING" : "SLIDE TO SEND"}
-        </Text>
-      </View>
+        </Animated.Text>
+      ) : (
+        <>
+          <View
+            style={{
+              position: "absolute",
+              top: 62,
+              bottom: 76,
+              left: 25,
+              justifyContent: "space-between",
+            }}
+          >
+            {Array.from({ length: 12 }, (_, i) => (
+              <View
+                key={i}
+                style={{
+                  width: 5,
+                  height: 5,
+                  borderRadius: 2.5,
+                  backgroundColor: c.primary,
+                  opacity: 0.5,
+                }}
+              />
+            ))}
+          </View>
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: -48,
+              width: 150,
+              transform: [{ rotate: "-90deg" }],
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 8,
+                fontFamily: "DMSans_600SemiBold",
+                letterSpacing: 2,
+                color: ready ? c.primary : c.muted,
+                textAlign: "center",
+                backgroundColor: c.paper,
+                padding: 7,
+              }}
+            >
+              {busy ? "TUNNELING" : "SLIDE TO SEND"}
+            </Text>
+          </View>
+        </>
+      )}
       <Animated.View
         style={{
           position: "absolute",
           ...(horizontal
-            ? { left: 12, top: 12, width: 38, height: 36 }
-            : { bottom: 12, left: 10, width: 34, height: 48 }),
-          borderRadius: 20,
-          backgroundColor: ready ? c.primary : c.paper,
-          borderWidth: 1,
-          borderColor: ready ? c.primary : c.line,
+            ? { left: 6, top: 6, width: 46, height: 46, borderRadius: 23 }
+            : { bottom: 12, left: 10, width: 34, height: 48, borderRadius: 20 }),
+          backgroundColor: ready ? c.primary : c.line,
           alignItems: "center",
           justifyContent: "center",
           opacity: fade,
@@ -226,13 +261,13 @@ export default function SendRail({
               ? {
                   translateX: progress.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, Math.max(0, length - 84)],
+                    outputRange: [0, Math.max(0, travel(length, horizontal))],
                   }),
                 }
               : {
                   translateY: progress.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, -Math.max(0, length - 84)],
+                    outputRange: [0, -Math.max(0, travel(length, horizontal))],
                   }),
                 },
             { scale: burst },
@@ -243,4 +278,9 @@ export default function SendRail({
       </Animated.View>
     </View>
   );
+}
+
+// Distance the handle can travel inside the rail.
+function travel(length: number, horizontal: boolean) {
+  return length - (horizontal ? 62 : 84);
 }

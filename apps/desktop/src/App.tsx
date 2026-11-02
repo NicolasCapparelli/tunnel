@@ -1,3 +1,4 @@
+import axisMark from "../../../assets/tunnel.svg";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuroraController, useAuroraState } from "@aurora/react";
 import {
@@ -15,6 +16,9 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowDownLeft,
+  ArrowLeft,
+  ChevronLeft,
+  ArrowUp,
   ArrowUpRight,
   Check,
   CheckCheck,
@@ -35,28 +39,29 @@ import {
   Maximize2,
   Download,
 } from "lucide-react";
+import { quantaSlot } from "./layout";
 import { bridge, native, type Snapshot } from "./bridge";
+import SingularityPanel from "./SingularityPanel";
 import {
   composerPrompts,
   nextPrompt,
   validDeviceName,
 } from "@tunnel/shared/composer";
-
-type Page = "send" | "history" | "devices" | "settings";
+type Page = "send" | "history" | "devices" | "singularity" | "settings";
 const pages = [
-  { id: "send", label: "Tunnel", icon: Plus },
-  { id: "history", label: "Transfer history", icon: History },
-  { id: "devices", label: "Linked devices", icon: Link2 },
-  { id: "settings", label: "Appearance & settings", icon: Settings2 },
+  { id: "send", label: "Tunnel", icon: ArrowUp },
+  { id: "history", label: "History", icon: History },
+  { id: "singularity", label: "Singularity", icon: Sparkles },
+  { id: "settings", label: "Settings", icon: Settings2 },
 ] as const;
-function Orbit({ small = false }: { small?: boolean }) {
+function BrandMark({ small = false }: { small?: boolean }) {
   return (
-    <span className={`orbit ${small ? "small" : ""}`} aria-hidden="true">
-      <i />
-      <i />
-      <i />
-      <b />
-    </span>
+    <img
+      className={`brand-mark ${small ? "small" : ""}`}
+      src={axisMark}
+      alt=""
+      aria-hidden="true"
+    />
   );
 }
 function time(at: number) {
@@ -65,13 +70,14 @@ function time(at: number) {
     minute: "2-digit",
   });
 }
-
 function AttachmentTile({
   q,
   a,
   index,
   notify,
+  noActions = false,
 }: {
+  noActions?: boolean;
   q?: Transfer;
   a: Attachment;
   index: number;
@@ -121,7 +127,7 @@ function AttachmentTile({
             : (a.size / 1024).toFixed(1) + " KB"}
         </small>
       </div>
-      {q && (
+      {q && !noActions && (
         <div className="attachment-controls">
           <button
             aria-label={"Copy " + a.name}
@@ -144,22 +150,300 @@ function AttachmentTile({
     </div>
   );
 }
+function saveAllPhotos(q: Transfer, notify: (e: unknown) => void) {
+  void (async () => {
+    for (const [index, a] of (q.attachments ?? []).entries())
+      if (a.mimeType.startsWith("image/"))
+        await bridge.saveAttachment(q.id, index);
+  })().catch(notify);
+}
 function AttachmentHistory({
   q,
   notify,
+  onView,
+  inlineDownload = true,
 }: {
+  onView: (q: Transfer, index: number) => void;
   q: Transfer;
   notify: (e: unknown) => void;
+  // Grid cards put download-all with their other actions instead.
+  inlineDownload?: boolean;
 }) {
+  const photos = (q.attachments ?? [])
+    .map((a, index) => ({ a, index }))
+    .filter(({ a }) => a.mimeType.startsWith("image/"));
   return (
-    <div className="quanta-gallery">
-      {(q.attachments ?? []).map((a, i) => (
-        <AttachmentTile key={i} q={q} a={a} index={i} notify={notify} />
-      ))}
+    <div className="history-attachments">
+      {photos.length > 0 && (
+        <div className="history-photo-row">
+          <button
+            className="photo-stack mini"
+            aria-label={`Open ${photos.length} photos`}
+            onClick={() => onView(q, photos[0].index)}
+          >
+            {photos.slice(0, 3).map(({ a, index }, i) => (
+              <span
+                className="photo-print"
+                key={index}
+                style={{ "--print-index": i } as React.CSSProperties}
+              >
+                <AttachmentTile
+                  q={q}
+                  a={a}
+                  index={index}
+                  notify={notify}
+                  noActions
+                />
+                {i === Math.min(photos.length, 3) - 1 && (
+                  <b className="photo-count">{photos.length}</b>
+                )}
+              </span>
+            ))}
+          </button>
+          {inlineDownload && photos.length > 1 && (
+            <button
+              className="icon-button"
+              aria-label="Download all photos"
+              onClick={() => saveAllPhotos(q, notify)}
+            >
+              <Download size={18} />
+            </button>
+          )}
+        </div>
+      )}
+      {(q.attachments ?? []).map(
+        (a, i) =>
+          !a.mimeType.startsWith("image/") && (
+            <AttachmentTile key={i} q={q} a={a} index={i} notify={notify} />
+          ),
+      )}
+    </div>
+  );
+}
+const reducedMotion = () =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const singleImage = (q: Transfer) =>
+  q.attachments?.length === 1 && q.attachments[0].mimeType.startsWith("image/");
+const statusLabel = (q: Transfer) =>
+  (q.direction === "sent" ? "Sent" : "Received") +
+  " · " +
+  (q.status === "delivered"
+    ? "Received"
+    : q.status === "pending"
+      ? "Awaiting receipt"
+      : "Receipt unconfirmed");
+// Fit a photo of the given size inside the window, leaving room for the band.
+function fitPhoto(w: number, h: number) {
+  const maxW = Math.min(window.innerWidth * 0.92 - 16, 1800);
+  const maxH = window.innerHeight * 0.9 - 56;
+  const scale = Math.min(maxW / w, maxH / h);
+  return { width: Math.round(w * scale), height: Math.round(h * scale) };
+}
+// Full-size viewer sources, shared across opens so a revisited photo shows at once.
+const viewerSources = new Map<string, Promise<string>>();
+const viewerReady = new Map<string, { src: string; w: number; h: number }>();
+function viewerSource(q: Transfer, index: number) {
+  const a = q.attachments?.[index];
+  if (!a) return Promise.reject(new Error("Photo not found"));
+  if (a.data)
+    return Promise.resolve("data:" + a.mimeType + ";base64," + a.data);
+  const key = q.id + "/" + index;
+  let source = viewerSources.get(key);
+  if (!source) {
+    source = bridge
+      .previewAttachment(q.id, index, true)
+      .catch(() => bridge.previewAttachment(q.id, index));
+    source.catch(() => viewerSources.delete(key));
+    viewerSources.set(key, source);
+    if (viewerSources.size > 16) {
+      const oldest = viewerSources.keys().next().value!;
+      viewerSources.delete(oldest);
+      viewerReady.delete(oldest);
+    }
+  }
+  return source;
+}
+function ViewerImage({ q, index }: { q: Transfer; index: number }) {
+  const a = q.attachments![index];
+  const key = q.id + "/" + index;
+  const ready = viewerReady.get(key);
+  const [src, setSrc] = useState<string | undefined>(ready?.src);
+  const [natural, setNatural] = useState<{ w: number; h: number } | undefined>(
+    ready,
+  );
+  const [failed, setFailed] = useState(false);
+  const [, setViewport] = useState(0);
+  useEffect(() => {
+    const resize = () => setViewport(window.innerWidth + window.innerHeight);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  useEffect(() => {
+    const cached = viewerReady.get(key);
+    setSrc(cached?.src);
+    setNatural(cached);
+    setFailed(false);
+    if (cached) return;
+    let live = true;
+    viewerSource(q, index)
+      .then((url) => live && setSrc(url))
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  const size = natural ? fitPhoto(natural.w, natural.h) : undefined;
+  return (
+    <div className={"viewer-image" + (size ? "" : " loading")} style={size}>
+      {failed && (
+        <p className="viewer-failed">This photo could not be loaded.</p>
+      )}
+      {src && (
+        <img
+          src={src}
+          alt={a.name}
+          decoding="async"
+          onError={() => setFailed(true)}
+          onLoad={(e) => {
+            const loaded = {
+              src,
+              w: e.currentTarget.naturalWidth,
+              h: e.currentTarget.naturalHeight,
+            };
+            viewerReady.set(key, loaded);
+            setNatural(loaded);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+function PhotoViewer({
+  q,
+  index,
+  onClose,
+  onChange,
+  onCopied,
+  notify,
+}: {
+  q: Transfer;
+  index: number;
+  onClose: () => void;
+  onChange: (index: number) => void;
+  onCopied: () => void;
+  notify: (e: unknown) => void;
+}) {
+  const [leaving, setLeaving] = useState(false);
+  const [direction, setDirection] = useState(0);
+  const dialog = useRef<HTMLElement>(null);
+  const photos = (q.attachments ?? [])
+    .map((a, i) => ({ a, i }))
+    .filter(({ a }) => a.mimeType.startsWith("image/"));
+  const position = photos.findIndex((p) => p.i === index);
+  const close = () => {
+    if (leaving) return;
+    if (reducedMotion()) return onClose();
+    setLeaving(true);
+    setTimeout(onClose, 200);
+  };
+  const turn = (delta: number) => {
+    const next = photos[position + delta];
+    if (!next) return;
+    setDirection(delta);
+    onChange(next.i);
+  };
+  const copy = () =>
+    void bridge.copyAttachment(q.id, index).then(onCopied).catch(notify);
+  useEffect(() => {
+    dialog.current?.focus();
+  }, []);
+  // Warm the neighbors so the arrows switch without a wait.
+  useEffect(() => {
+    for (const p of [photos[position - 1], photos[position + 1]])
+      if (p) void viewerSource(q, p.i).catch(() => {});
+  }, [q.id, index]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+      if (e.key === "ArrowLeft") turn(-1);
+      if (e.key === "ArrowRight") turn(1);
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [index, q.id, leaving]);
+  if (!q.attachments?.[index]) return null;
+  const many = photos.length > 1;
+  return (
+    <div
+      className={"modal-scrim photo-viewer" + (leaving ? " leaving" : "")}
+      onClick={close}
+    >
+      <section
+        ref={dialog}
+        tabIndex={-1}
+        className="viewer-print"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Photo viewer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          key={index}
+          className="viewer-slide"
+          style={
+            { "--slide-from": `${direction * 18}px` } as React.CSSProperties
+          }
+        >
+          <ViewerImage q={q} index={index} />
+        </div>
+        <div className="viewer-band">
+          <small>{many ? `${position + 1}/${photos.length}` : ""}</small>
+          <div className="viewer-arrows">
+            {many && (
+              <>
+                <button
+                  className="icon-button"
+                  aria-label="Previous photo"
+                  disabled={position <= 0}
+                  onClick={() => turn(-1)}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  className="icon-button"
+                  aria-label="Next photo"
+                  disabled={position >= photos.length - 1}
+                  onClick={() => turn(1)}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </>
+            )}
+          </div>
+          <button
+            className="icon-button viewer-copy"
+            aria-label="Copy this photo"
+            onClick={copy}
+          >
+            <Copy size={16} />
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
 export default function App() {
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("tunnel-sidebar-collapsed") === "true",
+  );
+  const [settingsPage, setSettingsPage] = useState<
+    "" | "look" | "arrival" | "account"
+  >("");
+  const [fanned, setFanned] = useState(false);
+  const [photo, setPhoto] = useState<{ q: Transfer; index: number } | null>(
+    null,
+  );
+  const [sheen, setSheen] = useState(0);
   const [expanded, setExpanded] = useState<Transfer | null>(null);
   const sendRef = useRef<() => void>(() => {});
   const [page, setPage] = useState<Page>("send");
@@ -174,6 +458,9 @@ export default function App() {
   const picker = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
+  const [flash, setFlashState] = useState<{ text: string; n: number }>();
+  const setFlash = (text: string) =>
+    setFlashState((old) => ({ text, n: (old?.n ?? 0) + 1 }));
   const [pair, setPair] = useState<Pairing | null>(null);
   const [address, setAddress] = useState("");
   const [pairBusy, setPairBusy] = useState(false);
@@ -229,6 +516,17 @@ export default function App() {
     return () => clearTimeout(t);
   }, [toast]);
   useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlashState(undefined), 1400);
+    return () => clearTimeout(t);
+  }, [flash]);
+  const copyQuanta = (q: Transfer) =>
+    void (
+      q.text
+        ? bridge.copy(q.text).then(() => setFlash("Copied"))
+        : bridge.copyAttachment(q.id, 0).then(() => setFlash("Photo copied"))
+    ).catch(notify);
+  useEffect(() => {
     const t = setInterval(() => setClock(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
@@ -273,8 +571,12 @@ export default function App() {
     }
     const files = retry?.attachments ?? attachments;
     setBusy(true);
+    setSheen((v) => v + 1);
     try {
-      await bridge.send(draft, retry?.id ?? crypto.randomUUID(), files);
+      await Promise.all([
+        bridge.send(draft, retry?.id ?? crypto.randomUUID(), files),
+        new Promise((resolve) => setTimeout(resolve, 1100)),
+      ]);
       if (!retry) {
         setText((t) => (t === draft ? "" : t));
         setAttachments((current) => (current === files ? [] : current));
@@ -340,7 +642,7 @@ export default function App() {
     }
   };
   sendRef.current = () => {
-    if (page === "send" && !expanded) void send();
+    if (page === "send" && !expanded && !photo) void send();
   };
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -409,97 +711,141 @@ export default function App() {
   );
   const navigate = (p: Page) => {
     if (p === "send" && page !== "send") setPrompt(nextPrompt);
+    if (p === "settings") setSettingsPage("");
+    if (p === "send") setSheen((v) => v + 1);
     setPage(p);
   };
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="brand-group">
-          <a
-            href="#"
-            className="brand"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("send");
-            }}
-          >
-            <Orbit small />
-            <span>
-              Tunnel<span className="brand-dot">.</span>
-            </span>
-          </a>
-        </div>
+    <div
+      className={`app-shell dusk-shell ${collapsed ? "sidebar-collapsed" : ""}`}
+    >
+      <aside className="desktop-sidebar">
         <button
-          className={`connection-pill ${connected ? "online" : ""}`}
-          onClick={() => navigate("devices")}
+          className="side-brand"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
+          onClick={() =>
+            setCollapsed((v) => {
+              localStorage.setItem("tunnel-sidebar-collapsed", String(!v));
+              return !v;
+            })
+          }
         >
-          <span className="status-dot" />
-          {connected
-            ? state?.peerName
-            : state?.peerName
-              ? "Phone offline"
-              : "No device linked"}
-          <ChevronRight size={14} />
+          <BrandMark small />
+          <b>Tunnel</b>
         </button>
-      </header>
-      <nav className="desktop-sidebar" aria-label="Main navigation">
-        {pages.map((p) => (
-          <button
-            key={p.id}
-            className={page === p.id ? "selected" : ""}
-            onClick={() => navigate(p.id)}
-            aria-current={page === p.id ? "page" : undefined}
-          >
-            <p.icon size={19} />
-            <span>{p.label}</span>
-          </button>
-        ))}
-      </nav>
-      <main className="workspace">
+        <nav aria-label="Main navigation">
+          {pages.map((p) => (
+            <button
+              key={p.id}
+              title={p.label}
+              aria-label={p.label}
+              className={
+                page === p.id || (p.id === "settings" && page === "devices")
+                  ? "selected"
+                  : ""
+              }
+              onClick={() => navigate(p.id)}
+              aria-current={page === p.id ? "page" : undefined}
+            >
+              <p.icon size={19} />
+              <span>{p.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="side-foot">
+          <span className={`status-dot ${connected ? "is-online" : ""}`} />
+          <span>
+            {state?.peerName
+              ? `${state.peerName} · ${connected ? "Connected" : "Offline"}`
+              : native
+                ? "Local first"
+                : "Browser preview"}
+          </span>
+        </div>
+      </aside>
+      <main
+        className={`workspace ${page === "send" ? "workspace-send" : ""} ${page === "singularity" ? "workspace-singularity" : ""} ${page === "history" ? "workspace-history" : ""} ${page === "settings" || page === "devices" ? "workspace-settings" : ""}`}
+      >
         {page !== "send" && (
           <div className="page-heading">
+            {(page === "devices" || (page === "settings" && settingsPage)) && (
+              <button
+                className="icon-button"
+                aria-label="Back"
+                onClick={() => {
+                  setPage("settings");
+                  setSettingsPage("");
+                }}
+              >
+                <ArrowLeft size={21} />
+              </button>
+            )}
             <div>
               <h1>
-                {page === "history" ? (
-                  <>
-                    A trail of <em>quanta.</em>
-                  </>
-                ) : page === "devices" ? (
-                  <>
-                    Meet the <em>other side.</em>
-                  </>
-                ) : (
-                  <>
-                    Make it <em>yours.</em>
-                  </>
-                )}
+                {page === "singularity"
+                  ? "Singularity"
+                  : page === "history"
+                    ? "History"
+                    : page === "devices"
+                      ? "Linked devices"
+                      : settingsPage === "look"
+                        ? "Appearance"
+                        : settingsPage === "arrival"
+                          ? "When something arrives"
+                          : settingsPage === "account"
+                            ? "Account"
+                            : "Settings"}
               </h1>
               <p>
-                {page === "history"
-                  ? "All quanta you've tunneled"
-                  : page === "devices"
-                    ? "One scan. Two devices. A much shorter distance."
-                    : "Powered by Aurora. Tuned to your comfort."}
+                {page === "singularity"
+                  ? "Saved on every device you sign in to. Not sent to a linked device."
+                  : page === "history"
+                    ? "All quanta you've tunneled"
+                    : page === "devices"
+                      ? "Link your phone over the local network."
+                      : settingsPage === "account"
+                        ? "Your shared quanta, on every device."
+                        : ""}
               </p>
             </div>
-            <span className="page-index">
-              0{pages.findIndex((p) => p.id === page) + 1} / 04
-            </span>
           </div>
         )}
+        <SingularityPanel
+          view={
+            page === "singularity"
+              ? "quanta"
+              : page === "settings" && settingsPage === "account"
+                ? "account"
+                : "hidden"
+          }
+          onOpenAccount={() => {
+            setPage("settings");
+            setSettingsPage("account");
+          }}
+        />
         {page === "send" && (
           <div className="send-layout">
             <section className="composer-area" aria-label="Compose quanta">
+              <div key={sheen} className="dusk-dotfield" aria-hidden="true">
+                <i />
+              </div>
+              <div className="to-line">
+                To <strong>{state?.peerName ?? "your phone"}</strong>
+                <button
+                  className={`connection-pill ${connected ? "online" : ""}`}
+                  onClick={() => navigate("devices")}
+                >
+                  <span className="status-dot" />
+                  {connected
+                    ? "Linked"
+                    : state?.peerName
+                      ? "Offline"
+                      : "Link a device"}
+                </button>
+              </div>
               <div className="composer-row">
                 <div className={`quanta-card ${busy ? "tunneling" : ""}`}>
-                  <div className="card-caption">
-                    <span>
-                      <i /> YOUR QUANTA
-                    </span>
-                    <span>
-                      TEXT <span className="tiny-separator">/</span> 01
-                    </span>
-                  </div>
                   <div className="input-area">
                     <textarea
                       ref={input}
@@ -511,34 +857,77 @@ export default function App() {
                     />
                     {!text && !attachments.length && (
                       <div className="empty-quanta">
-                        <Orbit />
+                        <BrandMark />
                         <h2>{composerPrompts[prompt]}</h2>
                         <p>Tap here and let a thought in.</p>
                       </div>
                     )}
                   </div>
                   {!!attachments.length && (
-                    <div
-                      className="composer-carousel"
-                      aria-label="Quanta attachments"
-                    >
-                      {attachments.map((a, i) => (
-                        <div className="composer-attachment" key={a.uri ?? i}>
-                          <AttachmentTile a={a} index={i} notify={notify} />
-                          <button
-                            className="remove-attachment"
-                            disabled={busy}
-                            aria-label={"Remove " + a.name}
-                            onClick={() =>
-                              setAttachments((old) =>
-                                old.filter((_, n) => n !== i),
-                              )
-                            }
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ))}
+                    <div className="composer-attachments">
+                      <button
+                        className={`photo-stack composer-stack ${fanned ? "fanned" : ""} ${
+                          !text.trim() &&
+                          attachments.every((a) =>
+                            a.mimeType.startsWith("image/"),
+                          )
+                            ? "large"
+                            : ""
+                        }`}
+                        hidden={
+                          !attachments.some((a) =>
+                            a.mimeType.startsWith("image/"),
+                          )
+                        }
+                        aria-label="Spread photo prints"
+                        aria-expanded={fanned}
+                        onClick={() => setFanned((v) => !v)}
+                      >
+                        {attachments
+                          .map((a, i) => ({ a, i }))
+                          .filter(({ a }) => a.mimeType.startsWith("image/"))
+                          .slice(0, 3)
+                          .map(({ a, i }, n, prints) => (
+                            <span
+                              className="photo-print"
+                              key={i}
+                              style={
+                                { "--print-index": n } as React.CSSProperties
+                              }
+                            >
+                              <AttachmentTile a={a} index={i} notify={notify} />
+                              {n === prints.length - 1 && (
+                                <b className="photo-count">
+                                  {
+                                    attachments.filter((a) =>
+                                      a.mimeType.startsWith("image/"),
+                                    ).length
+                                  }
+                                </b>
+                              )}
+                            </span>
+                          ))}
+                      </button>
+                      <div className="draft-file-list">
+                        {attachments.map((a, i) => (
+                          <div className="draft-file" key={a.uri ?? i}>
+                            <Paperclip size={14} />
+                            <span title={a.name}>{a.name}</span>
+                            <button
+                              className="icon-button"
+                              disabled={busy}
+                              aria-label={"Remove " + a.name}
+                              onClick={() =>
+                                setAttachments((old) =>
+                                  old.filter((_, n) => n !== i),
+                                )
+                              }
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div className="card-footer">
@@ -598,7 +987,7 @@ export default function App() {
             </section>
             <aside className="side-panel history-panel">
               <div className="panel-heading">
-                <h2>Recent quanta</h2>
+                <h2>Recent</h2>
                 <button
                   className="text-link"
                   onClick={() => navigate("history")}
@@ -630,28 +1019,7 @@ export default function App() {
               </div>
               <div className="recent-list">
                 {results.slice(0, 20).map((q) => (
-                  <article
-                    className="recent-quanta"
-                    key={q.id}
-                    onClick={(e) => {
-                      if (
-                        (e.target as HTMLElement).closest("button") ||
-                        window.getSelection()?.toString()
-                      )
-                        return;
-                      if (q.attachments?.length === 1)
-                        void bridge
-                          .copyAttachment(q.id, 0)
-                          .then(() => setToast("Copied."))
-                          .catch(notify);
-                      else if (q.attachments?.length) setExpanded(q);
-                      else
-                        void bridge
-                          .copy(q.text)
-                          .then(() => setToast("Copied."))
-                          .catch(notify);
-                    }}
-                  >
+                  <article className="recent-quanta" key={q.id}>
                     <div className="recent-heading">
                       <span className="transfer-meta">
                         {q.direction === "received" ? "From" : "To"} {q.peer} ·{" "}
@@ -666,36 +1034,28 @@ export default function App() {
                       </button>
                     </div>
                     {q.text && <p>{q.text}</p>}
-                    <div className="quanta-gallery">
-                      {(q.attachments ?? []).slice(0, 4).map((a, i) => (
-                        <AttachmentTile
-                          key={i}
-                          q={q}
-                          a={a}
-                          index={i}
-                          notify={notify}
-                        />
-                      ))}
-                    </div>
-                    {(q.attachments?.length ?? 0) > 4 && (
+                    <AttachmentHistory
+                      q={q}
+                      notify={notify}
+                      onView={(q, index) => setPhoto({ q, index })}
+                    />
+                    {q.status === "failed" && q.direction === "sent" && (
                       <button
-                        className="text-link"
-                        onClick={() => setExpanded(q)}
+                        className="icon-button recent-copy"
+                        aria-label="Retry transfer"
+                        disabled={busy || !connected}
+                        onClick={() => void send(q)}
                       >
-                        View all {q.attachments!.length} attachments
+                        <RefreshCw size={17} />
                       </button>
                     )}
-                    {q.text && (
+                    {(!!q.text || singleImage(q)) && (
                       <button
-                        className="text-link"
-                        onClick={() =>
-                          void bridge
-                            .copy(q.text)
-                            .then(() => setToast("Text copied."))
-                            .catch(notify)
-                        }
+                        className="icon-button recent-copy"
+                        aria-label={q.text ? "Copy quanta" : "Copy photo"}
+                        onClick={() => copyQuanta(q)}
                       >
-                        <Copy size={14} /> Copy text
+                        <Copy size={16} />
                       </button>
                     )}
                   </article>
@@ -743,90 +1103,110 @@ export default function App() {
                 <X size={18} /> Clear history
               </button>
             </div>
-            {results.length ? (
-              results.map((q) => (
-                <article className="history-item" key={q.id}>
-                  <span className={`transfer-direction ${q.direction}`}>
-                    {q.direction === "sent" ? (
-                      <ArrowUpRight size={20} />
-                    ) : (
-                      <ArrowDownLeft size={20} />
-                    )}
-                  </span>
-                  <div>
-                    <div className="transfer-meta">
-                      {q.direction === "sent" ? "To" : "From"} {q.peer}{" "}
-                      <span>
-                        · {new Date(q.createdAt).toLocaleDateString()} ·{" "}
-                        {time(q.createdAt)}
-                      </span>
-                    </div>
-                    <p>{q.text}</p>
-                    <AttachmentHistory q={q} notify={notify} />
-                    <span className={`delivery-status ${q.status}`}>
-                      {q.status === "delivered" ? (
-                        <CheckCheck size={13} />
-                      ) : (
-                        <RefreshCw size={13} />
-                      )}{" "}
-                      {q.status === "delivered"
-                        ? "Received"
-                        : q.status === "pending"
-                          ? "Awaiting receipt"
-                          : "Receipt unconfirmed"}
-                    </span>
-                  </div>
-                  <div className="history-item-actions">
-                    {q.status === "failed" && q.direction === "sent" && (
-                      <button
-                        className="icon-button"
-                        aria-label="Retry transfer"
-                        disabled={busy || !connected}
-                        onClick={() => void send(q)}
-                      >
-                        <RefreshCw size={17} />
-                      </button>
-                    )}
-                    <button
-                      className="icon-button"
-                      aria-label="Copy transfer text"
-                      disabled={!q.text}
-                      onClick={() =>
-                        bridge
-                          .copy(q.text)
-                          .then(() => setToast("Copied to clipboard."))
-                          .catch(notify)
-                      }
+            <div className="history-scroll">
+              {results.length ? (
+                <div className="quanta-grid">
+                  {results.map((q) => (
+                    <article
+                      className={"history-item " + quantaSlot(q.text)}
+                      key={q.id}
                     >
-                      <Copy size={18} />
-                    </button>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="empty-page">
-                <History size={36} />
-                <h2>
-                  {search
-                    ? "No matching quanta."
-                    : "Your thoughts will leave a trail."}
-                </h2>
-                <p>
-                  {search
-                    ? "Try a different word."
-                    : "Sent and received text will appear here."}
-                </p>
-                <button
-                  className="soft-button"
-                  onClick={() => navigate("send")}
-                >
-                  Compose your first quanta <ArrowUpRight size={16} />
-                </button>
-              </div>
-            )}
-            <p className="page-footnote">
-              The latest 200 transfers, stored on this device.
-            </p>
+                      <div>
+                        <div className="transfer-meta">
+                          {q.direction === "sent" ? "To" : "From"} {q.peer}{" "}
+                          <span>
+                            · {new Date(q.createdAt).toLocaleDateString()} ·{" "}
+                            {time(q.createdAt)}
+                          </span>
+                        </div>
+                        <p>{q.text}</p>
+                        <AttachmentHistory
+                          q={q}
+                          notify={notify}
+                          onView={(q, index) => setPhoto({ q, index })}
+                          inlineDownload={false}
+                        />
+                      </div>
+                      <span
+                        className={`delivery-status ${q.status} ${q.direction}`}
+                        role="img"
+                        aria-label={statusLabel(q)}
+                        title={statusLabel(q)}
+                      >
+                        <i className="status-dot" />
+                        {q.direction === "sent" ? (
+                          <ArrowUpRight size={14} />
+                        ) : (
+                          <ArrowDownLeft size={14} />
+                        )}
+                      </span>
+                      <div className="history-item-actions">
+                        <button
+                          className="icon-button"
+                          aria-label="Expand quanta"
+                          onClick={() => setExpanded(q)}
+                        >
+                          <Maximize2 size={17} />
+                        </button>
+                        {q.status === "failed" && q.direction === "sent" && (
+                          <button
+                            className="icon-button"
+                            aria-label="Retry transfer"
+                            disabled={busy || !connected}
+                            onClick={() => void send(q)}
+                          >
+                            <RefreshCw size={17} />
+                          </button>
+                        )}
+                        {(q.attachments ?? []).filter((a) =>
+                          a.mimeType.startsWith("image/"),
+                        ).length > 1 && (
+                          <button
+                            className="icon-button"
+                            aria-label="Download all photos"
+                            onClick={() => saveAllPhotos(q, notify)}
+                          >
+                            <Download size={17} />
+                          </button>
+                        )}
+                        {(!!q.text || singleImage(q)) && (
+                          <button
+                            className="icon-button"
+                            aria-label={q.text ? "Copy quanta" : "Copy photo"}
+                            onClick={() => copyQuanta(q)}
+                          >
+                            <Copy size={18} />
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-page">
+                  <History size={36} />
+                  <h2>
+                    {search
+                      ? "No matching quanta."
+                      : "Your thoughts will leave a trail."}
+                  </h2>
+                  <p>
+                    {search
+                      ? "Try a different word."
+                      : "Sent and received text will appear here."}
+                  </p>
+                  <button
+                    className="soft-button"
+                    onClick={() => navigate("send")}
+                  >
+                    Compose your first quanta <ArrowUpRight size={16} />
+                  </button>
+                </div>
+              )}
+              <p className="page-footnote">
+                The latest 200 transfers, stored on this device.
+              </p>
+            </div>
           </section>
         )}
         {page === "devices" && (
@@ -945,10 +1325,7 @@ export default function App() {
               )}
             </div>
             <div className="pairing-guide">
-              <h3>
-                A little setup.
-                <br />A lot less friction.
-              </h3>
+              <h3>Quick setup</h3>
               {[
                 "Keep both devices on the same Wi-Fi.",
                 "On your phone, open Linked devices.",
@@ -970,129 +1347,163 @@ export default function App() {
             </div>
           </section>
         )}
-        {page === "settings" && (
-          <section className="settings-page">
-            <div className="settings-card">
-              <div className="eyebrow">
-                <Sparkles size={15} /> AURORA THEMES
-              </div>
-              <h2>A softer kind of space.</h2>
-              <p>Change the atmosphere. Keep your train of thought.</p>
-              <div className="theme-grid">
-                {themes.map((t) => (
-                  <button
-                    key={t.id}
-                    className={`theme-option ${aurora.selection.themeId === t.id ? "selected" : ""}`}
-                    onClick={() => selectTheme({ themeId: t.id })}
-                  >
-                    <span
-                      className="theme-swatch"
-                      style={{
-                        background: t.variants.get("light")!.tokens.surface.hex,
-                      }}
-                    >
-                      <i
-                        style={{
-                          background:
-                            t.variants.get("light")!.tokens.primary.hex,
-                        }}
-                      />
-                      <i
-                        style={{
-                          background:
-                            t.variants.get("light")!.tokens.primaryContainer
-                              .hex,
-                        }}
-                      />
-                    </span>
-                    <span>
-                      {t.name}
-                      {aurora.selection.themeId === t.id && <Check size={16} />}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <div className="setting-row">
-                <div>
-                  <h4>Appearance</h4>
-                  <p>Start soft. Follow your rhythm.</p>
-                </div>
-                <select
-                  aria-label="Appearance"
-                  value={aurora.selection.appearance}
-                  onChange={(e) =>
-                    selectTheme({
-                      appearance: e.target
-                        .value as ThemePreferences["appearance"],
-                    })
-                  }
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="system">System</option>
-                </select>
-              </div>
-            </div>
-            <div className="settings-card">
-              <div className="eyebrow">THE LITTLE DETAILS</div>
-              {(
-                [
-                  {
-                    key: "autoCopy",
-                    label: "Copy incoming text or images automatically",
-                    hint: "Ready to paste as soon as it arrives.",
-                  },
-                  {
-                    key: "notifications",
-                    label: "Notify when quanta arrives",
-                    hint: "Click the notification to open transfer history.",
-                  },
-                  {
-                    key: "startup",
-                    label: "Start Tunnel with Windows",
-                    hint: "A quiet presence in your system tray.",
-                  },
-                ] as const
-              ).map((s) => (
-                <div className="setting-row" key={s.key}>
-                  <div>
-                    <h4>{s.label}</h4>
-                    <p>{s.hint}</p>
-                  </div>
-                  <button
-                    role="switch"
-                    aria-checked={state?.[s.key] ?? false}
-                    aria-label={s.label}
-                    className={`toggle ${state?.[s.key] ? "enabled" : ""}`}
-                    disabled={!native}
-                    onClick={() =>
-                      void updatePreferences({ [s.key]: !state?.[s.key] })
-                    }
-                  >
-                    <i />
-                  </button>
-                </div>
-              ))}
-            </div>
+        {page === "settings" && !settingsPage && (
+          <section className="settings-list">
+            {[
+              {
+                id: "look",
+                title: "Appearance",
+                hint: `${themes.find((t) => t.id === aurora.selection.themeId)?.name ?? "Theme"} · ${aurora.selection.appearance}`,
+              },
+              {
+                id: "arrival",
+                title: "When something arrives",
+                hint: "Clipboard, notifications and startup",
+              },
+              {
+                id: "devices",
+                title: "Linked devices",
+                hint: state?.peerName ?? "Link a phone",
+              },
+              {
+                id: "account",
+                title: "Account",
+                hint: "Cloudflare sign-in and sync",
+              },
+            ].map((s) => (
+              <button
+                className="settings-list-row"
+                key={s.id}
+                onClick={() =>
+                  s.id === "devices"
+                    ? setPage("devices")
+                    : setSettingsPage(s.id as "look" | "arrival" | "account")
+                }
+              >
+                <span>
+                  <strong>{s.title}</strong>
+                  <small>{s.hint}</small>
+                </span>
+                <ChevronRight size={20} />
+              </button>
+            ))}
           </section>
         )}
+        {page === "settings" &&
+          (settingsPage === "look" || settingsPage === "arrival") && (
+            <section className="settings-page">
+              <div className="settings-card" hidden={settingsPage !== "look"}>
+                <div className="eyebrow">
+                  <Sparkles size={15} /> AURORA THEMES
+                </div>
+                <h2>A softer kind of space.</h2>
+                <p>Change the atmosphere. Keep your train of thought.</p>
+                <div className="theme-grid">
+                  {themes.map((t) => (
+                    <button
+                      key={t.id}
+                      className={`theme-option ${aurora.selection.themeId === t.id ? "selected" : ""}`}
+                      onClick={() => selectTheme({ themeId: t.id })}
+                    >
+                      <span
+                        className="theme-swatch"
+                        style={{
+                          background:
+                            t.variants.get("light")!.tokens.surface.hex,
+                        }}
+                      >
+                        <i
+                          style={{
+                            background:
+                              t.variants.get("light")!.tokens.primary.hex,
+                          }}
+                        />
+                        <i
+                          style={{
+                            background:
+                              t.variants.get("light")!.tokens.primaryContainer
+                                .hex,
+                          }}
+                        />
+                      </span>
+                      <span>
+                        {t.name}
+                        {aurora.selection.themeId === t.id && (
+                          <Check size={16} />
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div
+                  className="segmented appearance-control"
+                  aria-label="Appearance"
+                >
+                  {(["light", "dark", "system"] as const).map((a) => (
+                    <button
+                      key={a}
+                      className={
+                        aurora.selection.appearance === a ? "selected" : ""
+                      }
+                      onClick={() => selectTheme({ appearance: a })}
+                    >
+                      {a[0].toUpperCase() + a.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div
+                className="settings-card"
+                hidden={settingsPage !== "arrival"}
+              >
+                <div className="eyebrow">THE LITTLE DETAILS</div>
+                {(
+                  [
+                    {
+                      key: "autoCopy",
+                      label: "Copy incoming text or images automatically",
+                      hint: "Ready to paste as soon as it arrives.",
+                    },
+                    {
+                      key: "notifications",
+                      label: "Notify when quanta arrives",
+                      hint: "Click the notification to open transfer history.",
+                    },
+                    {
+                      key: "startup",
+                      label: "Start Tunnel with Windows",
+                      hint: "A quiet presence in your system tray.",
+                    },
+                  ] as const
+                ).map((s) => (
+                  <div className="setting-row" key={s.key}>
+                    <div>
+                      <h4>{s.label}</h4>
+                      <p>{s.hint}</p>
+                    </div>
+                    <button
+                      role="switch"
+                      aria-checked={state?.[s.key] ?? false}
+                      aria-label={s.label}
+                      className={`toggle ${state?.[s.key] ? "enabled" : ""}`}
+                      disabled={!native}
+                      onClick={() =>
+                        void updatePreferences({ [s.key]: !state?.[s.key] })
+                      }
+                    >
+                      <i />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         {state?.error && (
           <p className="error-banner" role="alert">
             {state.error}
           </p>
         )}
       </main>
-      <footer className="app-footer">
-        <span>
-          <span className="status-dot" />
-          {native
-            ? "LOCAL FIRST. ALWAYS CLOSE."
-            : "BROWSER PREVIEW · Native transfers require the desktop app."}
-        </span>
-        <span>
-          TUNNEL <span className="version">V.01</span>
-        </span>
-      </footer>
       {arrival > 0 && (
         <div key={arrival} className="arrival-pulse" aria-hidden="true">
           <i />
@@ -1105,7 +1516,7 @@ export default function App() {
         </div>
       )}
       {expanded && (
-        <div className="modal-backdrop" onClick={() => setExpanded(null)}>
+        <div className="modal-scrim" onClick={() => setExpanded(null)}>
           <section
             className="quanta-dialog"
             role="dialog"
@@ -1133,8 +1544,27 @@ export default function App() {
                 <Copy size={16} /> Copy text
               </button>
             )}
-            <AttachmentHistory q={expanded} notify={notify} />
+            <AttachmentHistory
+              q={expanded}
+              notify={notify}
+              onView={(q, index) => setPhoto({ q, index })}
+            />
           </section>
+        </div>
+      )}
+      {photo && (
+        <PhotoViewer
+          q={photo.q}
+          index={photo.index}
+          onClose={() => setPhoto(null)}
+          onChange={(index) => setPhoto({ ...photo, index })}
+          onCopied={() => setFlash("Photo copied")}
+          notify={notify}
+        />
+      )}
+      {flash && (
+        <div key={flash.n} className="toast quick" role="status">
+          {flash.text}
         </div>
       )}
       {toast && (

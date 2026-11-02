@@ -32,12 +32,30 @@ function makeTheme(
           [F.onSurface, color("#344640")],
         ],
         dark: [
-          [F.surface, color("#293632")],
-          [F.surfaceContainerLow, color("#32413b")],
-          [F.surfaceContainer, color("#32413b")],
-          [F.surfaceContainerHigh, color("#3d4c46")],
-          [F.surfaceContainerHighest, color("#44564d")],
-          [F.onSurface, color("#dde9df")],
+          [F.surface, color("#3e4d60")],
+          [F.surfaceContainerLowest, color("#2c3a4b")],
+          [F.surfaceContainerLow, color("#314052")],
+          [F.surfaceContainer, color("#46586e")],
+          [F.surfaceContainerHigh, color("#4a5c72")],
+          [F.surfaceContainerHighest, color("#2a3849")],
+          [F.onSurface, color("#f4f8fc")],
+          [F.onSurfaceVariant, color("#c5d2e0")],
+          [F.outline, color("#93a6ba")],
+          [F.outlineVariant, color("#65778b")],
+          [
+            F.primary,
+            color(
+              id === "dune"
+                ? "#f2be9f"
+                : id === "mineral"
+                  ? "#9cdebc"
+                  : "#6fe0c2",
+            ),
+          ],
+          [F.onPrimary, color("#102e28")],
+          [F.primaryContainer, color("#2a3849")],
+          [F.onPrimaryContainer, color("#f4f8fc")],
+          [F.error, color("#ffb4ab")],
         ],
       },
     }),
